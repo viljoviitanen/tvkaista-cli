@@ -39,10 +39,10 @@ def usage():
 # List available video formats.  
 def show_format_info():
     print "Available video formats:"
-    print " iTunes  300 kB/s MPEG-4"
-    print " flv       1 MB/s flash video"
-    print " h264      2 MB/s MPEG-4"
-    print " ts        8 MB/s MPEG-2 transport stream"
+    print " iTunes  300 kbps MPEG-4"
+    print " flv       1 Mbps flash video"
+    print " h264      2 Mbps MPEG-4"
+    print " ts        8 Mbps MPEG-2 transport stream"
 
 # On the first run, prompt the user for settings
 def prompt_settings():
