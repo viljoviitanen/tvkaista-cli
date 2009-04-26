@@ -22,7 +22,6 @@
 import urllib, urllib2 , re, os, htmlentitydefs, sys, getopt, httplib2, shutil
 from string import split, replace, find
 
-sys.path.append( os.path.join( "./", "lib" ) )
 # Usage message
 def usage():
     print "Usage: tvkaista-download [-hvfupd]"
@@ -92,7 +91,7 @@ def read_rcfile(filename):
 
 # Transform month name abbreviations into numbers 1-12.  
 def rfc822month(mon):
-    monthnum = {
+    return {
       'Jan': '01',
       'Feb': '02',
       'Mar': '03',
@@ -105,8 +104,7 @@ def rfc822month(mon):
       'Oct': '10',
       'Nov': '11',
       'Dec': '12',
-    }
-    return monthnum[mon]
+    }[mon]
 
 # Filename suffix for a given video format
 def filesuffix(format):
@@ -186,17 +184,16 @@ def feedreader(channel):
         year = re.compile(r"\w*, \d* \w* (\d*) \d*:\d*:\d*", re.IGNORECASE).findall(progdate)
         month = re.compile(r"\w*, \d* (\w*) \d* \d*:\d*:\d*", re.IGNORECASE).findall(progdate)
         day = re.compile(r"\w*, (\d*) \w* \d* \d*:\d*:\d*", re.IGNORECASE).findall(progdate)
-        #clocktime = re.compile(r"\w*, \d* \w* \d* (\d*:\d*:\d*)", re.IGNORECASE).findall(progdate)
         clocktime = re.compile(r"\w*, \d* \w* \d* (\d*:\d*):\d*", re.IGNORECASE).findall(progdate)
         xbdate = '%s-%s-%s' % (year[0], rfc822month(month[0]), day[0])
         fileurl = 'http://%s:%s@%snetpvr/Download/%s.%s' % (urllib.quote(settings['username']), \
                   urllib.quote(settings['password']),curl, progurl,formatstring(settings['format']))
         srturl = 'http://%s:%s@%snetpvr/Download/%s.srt' % (urllib.quote(settings['username']), \
                  urllib.quote(settings['password']),curl, progurl)
-        filename = '%s%s_%s_%s_%s.%s' % (settings['downloaddir'],xbdate, clocktime[0], \
-                   channel.replace(" ","_"),unescape(progname),filesuffix(settings['format']))
-        srtfilename = '%s%s_%s_%s_%s.srt' % (settings['downloaddir'],xbdate, clocktime[0], \
-                      channel.replace(" ","_"),unescape(progname))
+        filename = '%s%s_%s_%s.%s' % (settings['downloaddir'],unescape(progname).replace(" ","_"),xbdate, \
+                   channel.replace(" ","-"),filesuffix(settings['format']))
+        srtfilename = '%s%s_%s_%s.srt' % (settings['downloaddir'],unescape(progname).replace(" ","_"),xbdate, \
+                   channel.replace(" ","-"))
         label = '%s klo %s (%s): %s' % (xbdate, clocktime[0],channel,unescape(progname)) 
         if (prompt):
             print label
