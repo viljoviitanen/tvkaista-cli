@@ -108,22 +108,12 @@ def rfc822month(mon):
 
 # Filename suffix for a given video format
 def filesuffix(format):
-    suffix = {
+    return {
       'iTunes': 'mp4',
       'flv' :   'flv',
       'h264':   'mp4',
       'ts':     'ts'
-    }
-    return suffix[format]
-
-def formatstring(format):
-    string = {
-      'iTunes': 'mp4',
-      'flv' :   'flv',
-      'h264':   'h264',
-      'ts':     'ts'
-    }
-    return string[format]
+    }[format]
 
 # Remove HTML encoding of strings
 # Original code from tvkaistaforxbmc plugin
@@ -187,7 +177,7 @@ def feedreader(channel):
         clocktime = re.compile(r"\w*, \d* \w* \d* (\d*:\d*):\d*", re.IGNORECASE).findall(progdate)
         xbdate = '%s-%s-%s' % (year[0], rfc822month(month[0]), day[0])
         fileurl = 'http://%s:%s@%snetpvr/Download/%s.%s' % (urllib.quote(settings['username']), \
-                  urllib.quote(settings['password']),curl, progurl,formatstring(settings['format']))
+                  urllib.quote(settings['password']),curl, progurl,filesuffix(settings['format']))
         srturl = 'http://%s:%s@%snetpvr/Download/%s.srt' % (urllib.quote(settings['username']), \
                  urllib.quote(settings['password']),curl, progurl)
         filename = '%s%s_%s_%s.%s' % (settings['downloaddir'],unescape(progname).replace(" ","_"),xbdate, \
