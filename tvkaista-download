@@ -24,11 +24,12 @@ from string import split, replace, find
 
 # Usage message
 def usage():
-    print "Usage: tvkaista-download [-hvfupd]"
+    print "Usage: tvkaista-download [-hvfupsd]"
     print ""
     print " Options:  -h --help  show this message"
     print "           -v         print more information"
     print "           -p         prompt before downloading"
+    print "           -s         show list of favourites"
     print "           -u         username"
     print "           -p         password"
     print "           -f         video format (iTunes/flv/h264/ts/help)"
@@ -193,7 +194,7 @@ def feedreader(channel):
         srtfilename = '%s%s_%s_%s.srt' % (settings['downloaddir'],unescape(progname).replace(" ","_"),xbdate, \
                    channel.replace(" ","-"))
         label = '%s klo %s (%s): %s' % (xbdate, clocktime[0],channel,unescape(progname)) 
-        if (prompt):
+        if (prompt and not os.path.exists(filename)):
             print label
 	    if (raw_input('Download (Y/n) ') in ['n']):
 	        continue
@@ -225,13 +226,22 @@ def download(targets):
             print "Downloading subtitle file from " + srturl
         if (not os.path.exists(srtfilename)):
             try:
-                urllib.urlretrieve(srturl, srtfilename+TMP_SUFFIX)
+                urllib.urlretrieve(srturl, srtfilename+TMP_SUFFIX)    
             except:
                 "Download failed."
             if (os.path.exists(srtfilename+TMP_SUFFIX)):
                 shutil.move(srtfilename+TMP_SUFFIX, srtfilename)
             if (os.stat(srtfilename).st_size == 0):
                 os.remove(srtfilename)
+
+# Print list of favourites.  
+def show_favs(targets):
+    for fileurl,filename,srturl,srtfilename,label in targets:
+        if (os.path.exists(filename)):
+            print "[*]",
+        else:
+            print "[ ]",
+        print label
 
 
 # Progress bar display for urllib.urlretrieve function.  
@@ -274,12 +284,13 @@ def main(argv):
     global conffile
     global verbose
     global prompt
+    global show
     global settings
     exp_settings = {}
 
     # Processing of command line options using getopt.  
     try:
-        opts, args = getopt.getopt(argv, "hvpf:u:p:d:", \
+        opts, args = getopt.getopt(argv, "hvpsf:u:p:d:", \
                        ["help","verbose","format=","username=", \
                         "password=","downloaddir="])
     except getopt.GetoptError:
@@ -293,6 +304,8 @@ def main(argv):
             verbose = True
         elif opt in ("-p", "--prompt"):
             prompt = True
+        elif opt in ("-s", "--show"):
+            show = True
         elif opt in ("-f", "--format"):
             exp_settings['format'] = arg
         elif opt in ("-u", "--username"):
@@ -328,7 +341,10 @@ def main(argv):
     # and we're ready to download.
     #targets = feedreader('favourites')
     targets = feedreader('Playlist')
-    download(targets)
+    if (show):
+        show_favs(targets)
+    else:
+        download(targets)
     sys.exit()
 
 
@@ -346,6 +362,7 @@ att = ['username','password','format','downloaddir']
 formats = ['iTunes','flv','h264','ts']
 verbose = False
 prompt = False
+show = False
 
 
 if __name__ == "__main__":
