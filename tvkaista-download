@@ -175,9 +175,10 @@ def feedreader(channel):
     temp_name = re.compile('<item>\s*<title>(.*)</title>', re.IGNORECASE).findall(content)
     temp_channel = re.compile('<itunes:author>(.*)</itunes:author>', re.IGNORECASE).findall(content)
     temp_length = re.compile('<itunes:duration>(.*)</itunes:duration>', re.IGNORECASE).findall(content)
+    temp_idn = re.compile('<guid>http://www.tvkaista.fi/netpvr/Search\?id=(\d+)</guid>', re.IGNORECASE).findall(content)
     temp_channel.remove('TVkaista NetPVR')
     temp_date.pop(0)
-    for progurl,progdate,progname,channel in zip(temp_url,temp_date,temp_name,temp_channel):
+    for progurl,progdate,progname,channel,idn in zip(temp_url,temp_date,temp_name,temp_channel,temp_idn):
         progname = progname.replace('&apos;', "'")
         #progdesc = progdesc.replace('&apos;', "'")
         year = re.compile(r"\w*, \d* \w* (\d*) \d*:\d*:\d*", re.IGNORECASE).findall(progdate)
@@ -189,10 +190,10 @@ def feedreader(channel):
                   urllib.quote(settings['password']),curl, progurl,formatstring(settings['format']))
         srturl = 'http://%s:%s@%snetpvr/Download/%s.srt' % (urllib.quote(settings['username']), \
                  urllib.quote(settings['password']),curl, progurl)
-        filename = '%s%s_%s_%s.%s' % (settings['downloaddir'],unescape(progname).replace(" ","_"),xbdate, \
-                   channel.replace(" ","-"),filesuffix(settings['format']))
-        srtfilename = '%s%s_%s_%s.srt' % (settings['downloaddir'],unescape(progname).replace(" ","_"),xbdate, \
-                   channel.replace(" ","-"))
+        filename = '%s%s_%s_%s_%s.%s' % (settings['downloaddir'],unescape(progname).replace(" ","_"),xbdate, \
+                   channel.replace(" ","-"),idn,filesuffix(settings['format']))
+        srtfilename = '%s%s_%s_%s_%s.srt' % (settings['downloaddir'],unescape(progname).replace(" ","_"),xbdate, \
+                   channel.replace(" ","-"),idn)
         label = '%s klo %s (%s): %s' % (xbdate, clocktime[0],channel,unescape(progname)) 
         if (prompt and not os.path.exists(filename)):
             print label
@@ -214,23 +215,22 @@ def download(targets):
         else:
             try:
                 urllib.urlretrieve(fileurl, filename+TMP_SUFFIX, reporthook=progressbar)
+                if (os.path.exists(filename+TMP_SUFFIX)):
+                    shutil.move(filename+TMP_SUFFIX, filename)
+                if (verbose):
+                    print "Saved file "+filename
             except:
-                "Download failed."
-            sys.stdout.write("\n")
-            if (os.path.exists(filename+TMP_SUFFIX)):
-                shutil.move(filename+TMP_SUFFIX, filename)
-            if (verbose):
-                print "Saved file "+filename
+                print "Download failed."
         # Download subtitle file. Remove if empty.  
         if (verbose):
             print "Downloading subtitle file from " + srturl
         if (not os.path.exists(srtfilename)):
             try:
-                urllib.urlretrieve(srturl, srtfilename+TMP_SUFFIX)    
+                urllib.urlretrieve(srturl, srtfilename+TMP_SUFFIX)
+                if (os.path.exists(srtfilename+TMP_SUFFIX)):
+                    shutil.move(srtfilename+TMP_SUFFIX, srtfilename)
             except:
                 "Download failed."
-            if (os.path.exists(srtfilename+TMP_SUFFIX)):
-                shutil.move(srtfilename+TMP_SUFFIX, srtfilename)
             if (os.stat(srtfilename).st_size == 0):
                 os.remove(srtfilename)
 
