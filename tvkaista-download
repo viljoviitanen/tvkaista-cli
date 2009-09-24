@@ -19,7 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import urllib, urllib2 , re, os, htmlentitydefs, sys, getopt, httplib2, shutil
+import urllib, urllib2 , re, os, htmlentitydefs, sys, getopt, httplib2, shutil, time
 from string import split, replace, find
 
 # Usage message
@@ -206,6 +206,7 @@ def feedreader(channel):
 def download(targets):
     for fileurl,filename,srturl,srtfilename,label in targets:
         print label
+        stime = time.time()
         # Download video file. 
         if (verbose):
             print "Downloading video file from " + fileurl
@@ -220,7 +221,7 @@ def download(targets):
                 if (verbose):
                     print "Saved file "+filename
             except:
-                print "Download failed."
+                print "Download interrupted"
         # Download subtitle file. Remove if empty.  
         if (verbose):
             print "Downloading subtitle file from " + srturl
@@ -230,7 +231,7 @@ def download(targets):
                 if (os.path.exists(srtfilename+TMP_SUFFIX)):
                     shutil.move(srtfilename+TMP_SUFFIX, srtfilename)
             except:
-                "Download failed."
+                print "Download interrupted"
             if (os.stat(srtfilename).st_size == 0):
                 os.remove(srtfilename)
 
@@ -243,7 +244,6 @@ def show_favs(targets):
             print "[ ]",
         print label
 
-
 # Progress bar display for urllib.urlretrieve function.  
 def progressbar(count, blockSize, totalSize):
     if (totalSize > 0):
@@ -252,7 +252,17 @@ def progressbar(count, blockSize, totalSize):
     else:
         percent = 0
         blocks = 0
-    sys.stdout.write("\r["+blocks*'='+(BAR_WIDTH-blocks)*' '+'] '+'(%d%%)' % percent)
+    sys.stdout.write("\r["+blocks*'='+(BAR_WIDTH-blocks)*' '+'] '+'%d%% ' % percent)
+    #sys.stdout.write('%d KiB ' % (count * blockSize/(1024)))
+    sys.stdout.write('of %.2f GB ' % (totalSize/(1024*1024*1024)))
+    kbps_speed = (count*blockSize)/(1024*(time.time() - stime))
+    sys.stdout.write('at %d KB/s ' % kbps_speed)
+    if kbps_speed > 0:
+        eta = (totalSize - count*blockSize) / (1024*kbps_speed)
+    else:
+        eta = 0
+    sys.stdout.write('ETA: %d min' % round(eta/60, 2))
+    sys.stdout.write(14*' ')
     sys.stdout.flush()
 
 # Return a suitable file name for configuration options.  
@@ -286,6 +296,9 @@ def main(argv):
     global prompt
     global show
     global settings
+    global stime
+    
+    stime = time.time()
     exp_settings = {}
 
     # Processing of command line options using getopt.  
@@ -317,7 +330,7 @@ def main(argv):
     
     # First see whether a configuration file is available.  
     conffile = getconffile()
-    
+
     if os.path.exists(conffile):
         if (verbose):
             print "Reading configuration from " + conffile
@@ -341,6 +354,7 @@ def main(argv):
     # and we're ready to download.
     #targets = feedreader('favourites')
     targets = feedreader('Playlist')
+
     if (show):
         show_favs(targets)
     else:
