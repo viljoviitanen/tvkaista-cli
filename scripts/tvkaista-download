@@ -1,0 +1,384 @@
+#!/usr/bin/python
+# coding=UTF-8
+#
+# tvkaista-download - Batch download recordings from tvkaista.fi PVR service
+#
+# http://code.google.com/p/tvkaista-download/
+#
+# Copyright (c) 2009 Matti Pöllä
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+import urllib, urllib2 , re, os, htmlentitydefs, sys, getopt, httplib2, shutil, time
+from string import split, replace, find
+
+# Usage message
+def usage():
+    print "Usage: tvkaista-download [-hvfupsd]"
+    print ""
+    print " Options:  -h --help  show this message"
+    print "           -v         print more information"
+    print "           -p         prompt before downloading"
+    print "           -s         show list of favourites"
+    print "           -u         username"
+    print "           -p         password"
+    print "           -f         video format (iTunes/flv/h264/ts/help)"
+    print "           -d         download directory"
+    print ""
+
+# List available video formats.  
+def show_format_info():
+    print "Available video formats:"
+    print " iTunes  300 kbps MPEG-4"
+    print " flv       1 Mbps flash video"
+    print " h264      2 Mbps MPEG-4"
+    print " ts        8 Mbps MPEG-2 transport stream"
+
+# On the first run, prompt the user for settings
+def prompt_settings():
+    settings = {}
+    settings['username'] = raw_input("TVkaista username: ")
+    settings['password'] = raw_input("TVkaista password: ")
+    settings['format'] = "unknown"
+    while (settings['format'] not in formats):
+        if (settings['format']) == "help":
+            show_format_info()
+        settings['format'] = raw_input("File format (iTunes/flv/h264/ts): ")
+    settings['downloaddir'] = raw_input("Download directory: ")
+    for k in settings.keys():
+        print "   " + k + ": " + settings[k]
+    while (raw_input("Are these values ok (Y/n)? ") in ['n']):
+        prompt_settings()
+    return settings
+
+# Write configuration file.  
+# Format: option = value
+def write_rcfile(settings):
+    omask = os.umask(077)
+    f = open(getconffile(), 'w')
+    f.write("# Configuration file for tvkaista-download script\n")
+    f.write("# http://code.google.com/p/tvkaista-download/\n")
+    for k in settings.keys():
+        f.write(k+" = " + settings[k] + "\n")
+    f.close()
+    os.umask(omask)
+
+# Read configuration file.  
+# Format: option = value
+def read_rcfile(filename):
+    config = {}
+    f = open(filename)
+    for line in f:
+        if "#" in line:
+            line, comment = line.split("#", 1)
+        if "=" in line:
+            # split on option char:
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip()
+            config[key] = value
+    f.close()
+    return config
+
+# Transform month name abbreviations into numbers 1-12.  
+def rfc822month(mon):
+    return {
+      'Jan': '01',
+      'Feb': '02',
+      'Mar': '03',
+      'Apr': '04',
+      'May': '05',
+      'Jun': '06',
+      'Jul': '07',
+      'Aug': '08',
+      'Sep': '09',
+      'Oct': '10',
+      'Nov': '11',
+      'Dec': '12',
+    }[mon]
+
+# Filename suffix for a given video format
+def filesuffix(format):
+    return {
+      'iTunes': 'mp4',
+      'flv' :   'flv',
+      'h264':   'mp4',
+      'ts':     'ts'
+    }[format]
+
+def formatstring(format):
+    return {
+      'iTunes': 'mp4',
+      'flv' :   'flv',
+      'h264':   'h264',
+      'ts':     'ts'
+    }[format]
+
+# Remove HTML encoding of strings
+# Original code from tvkaistaforxbmc plugin
+def unescape(text):
+    def fixup(m):
+        text = m.group(0)
+        if text[:2] == "&#":
+            try:
+                if text[:3] == "&#x":
+                    return unichr(int(text[3:-1], 16))
+                else:
+                    return unichr(int(text[2:-1]))
+            except ValueError:
+                pass
+        else:
+            try:
+                text = unichr(htmlentitydefs.name2codepoint[text[1:-1]])
+            except KeyError:
+                pass
+        return text
+    return re.sub("&#?\w+;", fixup, text)
+
+# Login to tvkaista.fi (required for each action)
+def login():
+    loginurl = 'http://www.tvkaista.fi/netpvr/Login'
+    body = {'action': 'login', 'username': settings['username'], 'password': settings['password'], 'rememberme':'on'}
+    global headers
+    headers = {'Content-type': 'application/x-www-form-urlencoded'}
+    response, content = http.request(loginurl, 'POST', headers=headers, body=urllib.urlencode(body))
+    return response['set-cookie']
+
+# Download the list of favorite recordings and build a list of download targets.  
+# Original code from tvkaistaforxbmc plugin
+def feedreader(channel):
+    targets = []
+    headers['Cookie'] = login()
+    curl = 'www.tvkaista.fi/'
+    # Use RSS stream for iTunes to read program info.  
+    favurl = 'http://%snetpvr/Feed?channel=%s&format=mp4&extension=itunes' % (curl, channel)
+    response, content = http.request(favurl, 'GET', headers=headers)
+    if (response['status'] == '401'):
+        print "HTTP/401 (Unauthorized) Could not login to tvkaista.fi."
+        sys.exit(1)
+    elif (response['status'] == '404'):
+        print "HTTP/404 (Not Found) Feed XML file was not found."
+        sys.exit(1)
+    temp_url = re.compile(r'<enclosure url="http://[.\w]*tvkaista[.]fi/netpvr/Download/(\d*)[.]mp4"', \
+                          re.IGNORECASE).findall(content)
+    temp_date = re.compile('<pubDate>(.*) [+]\d*</pubDate>', re.IGNORECASE).findall(content)
+    temp_name = re.compile('<item>\s*<title>(.*)</title>', re.IGNORECASE).findall(content)
+    temp_channel = re.compile('<itunes:author>(.*)</itunes:author>', re.IGNORECASE).findall(content)
+    temp_length = re.compile('<itunes:duration>(.*)</itunes:duration>', re.IGNORECASE).findall(content)
+    temp_idn = re.compile('<guid>http://www.tvkaista.fi/netpvr/Search\?id=(\d+)</guid>', re.IGNORECASE).findall(content)
+    temp_channel.remove('TVkaista NetPVR')
+    temp_date.pop(0)
+    for progurl,progdate,progname,channel,idn in zip(temp_url,temp_date,temp_name,temp_channel,temp_idn):
+        progname = progname.replace('&apos;', "'")
+        #progdesc = progdesc.replace('&apos;', "'")
+        year = re.compile(r"\w*, \d* \w* (\d*) \d*:\d*:\d*", re.IGNORECASE).findall(progdate)
+        month = re.compile(r"\w*, \d* (\w*) \d* \d*:\d*:\d*", re.IGNORECASE).findall(progdate)
+        day = re.compile(r"\w*, (\d*) \w* \d* \d*:\d*:\d*", re.IGNORECASE).findall(progdate)
+        clocktime = re.compile(r"\w*, \d* \w* \d* (\d*:\d*):\d*", re.IGNORECASE).findall(progdate)
+        xbdate = '%s-%s-%s' % (year[0], rfc822month(month[0]), day[0])
+        fileurl = 'http://%s:%s@%snetpvr/Download/%s.%s' % (urllib.quote(settings['username']), \
+                  urllib.quote(settings['password']),curl, progurl,formatstring(settings['format']))
+        srturl = 'http://%s:%s@%snetpvr/Download/%s.srt' % (urllib.quote(settings['username']), \
+                 urllib.quote(settings['password']),curl, progurl)
+        filename = '%s%s_%s_%s_%s.%s' % (settings['downloaddir'],unescape(progname).replace(" ","_"),xbdate, \
+                   channel.replace(" ","-"),idn,filesuffix(settings['format']))
+        srtfilename = '%s%s_%s_%s_%s.srt' % (settings['downloaddir'],unescape(progname).replace(" ","_"),xbdate, \
+                   channel.replace(" ","-"),idn)
+        label = '%s klo %s (%s): %s' % (xbdate, clocktime[0],channel,unescape(progname)) 
+        if (prompt and not os.path.exists(filename)):
+            print label
+	    if (raw_input('Download (Y/n) ') in ['n']):
+	        continue
+	targets.append([fileurl,filename,srturl,srtfilename,label])
+    return targets
+
+# Download video files and subtitles.  
+def download(targets):
+    for fileurl,filename,srturl,srtfilename,label in targets:
+        print label
+        stime = time.time()
+        # Download video file. 
+        if (verbose):
+            print "Downloading video file from " + fileurl
+        if (os.path.exists(filename)):
+            sys.stdout.write("\r["+BAR_WIDTH*'='+'] (done)\n')
+            continue
+        else:
+            try:
+                urllib.urlretrieve(fileurl, filename+TMP_SUFFIX, reporthook=progressbar)
+                if (os.path.exists(filename+TMP_SUFFIX)):
+                    shutil.move(filename+TMP_SUFFIX, filename)
+                if (verbose):
+                    print "Saved file "+filename
+            except:
+                print "Download interrupted"
+        # Download subtitle file. Remove if empty.  
+        if (verbose):
+            print "Downloading subtitle file from " + srturl
+        if (not os.path.exists(srtfilename)):
+            try:
+                urllib.urlretrieve(srturl, srtfilename+TMP_SUFFIX)
+                if (os.path.exists(srtfilename+TMP_SUFFIX)):
+                    shutil.move(srtfilename+TMP_SUFFIX, srtfilename)
+            except:
+                print "Download interrupted"
+            if (os.stat(srtfilename).st_size == 0):
+                os.remove(srtfilename)
+
+# Print list of favourites.  
+def show_favs(targets):
+    for fileurl,filename,srturl,srtfilename,label in targets:
+        if (os.path.exists(filename)):
+            print "[*]",
+        else:
+            print "[ ]",
+        print label
+
+# Progress bar display for urllib.urlretrieve function.  
+def progressbar(count, blockSize, totalSize):
+    if (totalSize > 0):
+        percent = int(count*blockSize*100/totalSize)
+        blocks = int(count*blockSize*BAR_WIDTH/totalSize)
+    else:
+        percent = 0
+        blocks = 0
+    sys.stdout.write("\r["+blocks*'='+(BAR_WIDTH-blocks)*' '+'] '+'%d%% ' % percent)
+    #sys.stdout.write('%d KiB ' % (count * blockSize/(1024)))
+    sys.stdout.write('of %.2f GB ' % (totalSize/(1024*1024*1024)))
+    kbps_speed = (count*blockSize)/(1024*(time.time() - stime))
+    sys.stdout.write('at %d KB/s ' % kbps_speed)
+    if kbps_speed > 0:
+        eta = (totalSize - count*blockSize) / (1024*kbps_speed)
+    else:
+        eta = 0
+    sys.stdout.write('ETA: %d min' % round(eta/60, 2))
+    sys.stdout.write(14*' ')
+    sys.stdout.flush()
+
+# Return a suitable file name for configuration options.  
+def getconffile():
+    # TODO: OS specific selection of configuration file name.  
+    return os.getenv("HOME")+"/.tvkaista-downloadrc"
+
+# Confirm that all required settings have been defined.  
+def valid_settings(s,critical):
+    for k in att:
+        try:
+            if (s[k] == None):
+                if (critical):
+                    print k+" not specified. See \"tvkaista-download --help\""
+                    sys.exit(1)
+                else:
+                    return False
+        except KeyError:
+            if (critical):
+                print k+" not specified. See \"tvkaista-download --help\""
+                sys.exit(1)
+            else:
+                return False
+    return True
+
+# Main program
+def main(argv):
+
+    global conffile
+    global verbose
+    global prompt
+    global show
+    global settings
+    global stime
+    
+    stime = time.time()
+    exp_settings = {}
+
+    # Processing of command line options using getopt.  
+    try:
+        opts, args = getopt.getopt(argv, "hvpsf:u:p:d:", \
+                       ["help","verbose","format=","username=", \
+                        "password=","downloaddir="])
+    except getopt.GetoptError:
+        usage()
+        sys.exit(2)
+    for opt, arg in opts:
+        if opt in ("-h", "--help"):
+            usage()                     
+            sys.exit()
+        elif opt in ("-v", "--verbose"):
+            verbose = True
+        elif opt in ("-p", "--prompt"):
+            prompt = True
+        elif opt in ("-s", "--show"):
+            show = True
+        elif opt in ("-f", "--format"):
+            exp_settings['format'] = arg
+        elif opt in ("-u", "--username"):
+            exp_settings['username'] = arg
+        elif opt in ("-p", "--password"):
+            exp_settings['password'] = arg
+        elif opt in ("-d", "--downloaddir"):
+            exp_settings['downloaddir'] = arg
+    
+    # First see whether a configuration file is available.  
+    conffile = getconffile()
+
+    if os.path.exists(conffile):
+        if (verbose):
+            print "Reading configuration from " + conffile
+        settings = read_rcfile(conffile)
+    else:
+        if (not valid_settings(exp_settings, False)):
+            settings = prompt_settings()
+            write_rcfile(settings)
+        
+    # Override configuration file if necessary.  
+    settings.update(exp_settings)
+
+    # Make sure that all required settings have been defined.  
+    valid_settings(settings, True)
+
+    # Debug: print all settings
+    #for k in att:
+    #    print k+": "+settings[k]
+
+    # Processing of configuration and options is now complete
+    # and we're ready to download.
+    #targets = feedreader('favourites')
+    targets = feedreader('Playlist')
+
+    if (show):
+        show_favs(targets)
+    else:
+        download(targets)
+    sys.exit()
+
+
+# File name suffix for incomplete downloads
+TMP_SUFFIX = '.part'
+# Progress bar width
+BAR_WIDTH = 70
+# HTTP headers
+headers = {'Content-type': 'application/x-www-form-urlencoded'}
+http = httplib2.Http()
+settings = {}
+# Required configuration options
+att = ['username','password','format','downloaddir']
+# Available video formats
+formats = ['iTunes','flv','h264','ts']
+verbose = False
+prompt = False
+show = False
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
+
