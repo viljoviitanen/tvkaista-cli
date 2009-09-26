@@ -21,6 +21,16 @@
 
 import urllib, urllib2 , re, os, htmlentitydefs, sys, getopt, httplib2, shutil, time
 from string import split, replace, find
+from math import floor
+
+class Timer:
+    def __init__(self):
+        self.t = time.time()
+    def gettime(self):
+        return time.time() - self.t
+    def reset(self):
+        self.t = time.time()
+
 
 # Usage message
 def usage():
@@ -148,6 +158,7 @@ def unescape(text):
 # Login to tvkaista.fi (required for each action)
 def login():
     loginurl = 'http://www.tvkaista.fi/netpvr/Login'
+    #loginurl = 'http://alpha.tvkaista.fi/login'
     body = {'action': 'login', 'username': settings['username'], 'password': settings['password'], 'rememberme':'on'}
     global headers
     headers = {'Content-type': 'application/x-www-form-urlencoded'}
@@ -160,8 +171,10 @@ def feedreader(channel):
     targets = []
     headers['Cookie'] = login()
     curl = 'www.tvkaista.fi/'
+    #curl = 'alpha.tvkaista.fi/'
     # Use RSS stream for iTunes to read program info.  
     favurl = 'http://%snetpvr/Feed?channel=%s&format=mp4&extension=itunes' % (curl, channel)
+    #favurl = 'http://alpha.tvkaista.fi/feed/playlist/mp4.rss'
     response, content = http.request(favurl, 'GET', headers=headers)
     if (response['status'] == '401'):
         print "HTTP/401 (Unauthorized) Could not login to tvkaista.fi."
@@ -204,9 +217,10 @@ def feedreader(channel):
 
 # Download video files and subtitles.  
 def download(targets):
+
     for fileurl,filename,srturl,srtfilename,label in targets:
-        print label
-        stime = time.time()
+        print "\n" + label
+        timer.reset()
         # Download video file. 
         if (verbose):
             print "Downloading video file from " + fileurl
@@ -215,7 +229,9 @@ def download(targets):
             continue
         else:
             try:
+                sys.stdout.write('\033[?25l') # Hide cursos
                 urllib.urlretrieve(fileurl, filename+TMP_SUFFIX, reporthook=progressbar)
+                sys.stdout.write('\033[?25h') # Show cursor
                 if (os.path.exists(filename+TMP_SUFFIX)):
                     shutil.move(filename+TMP_SUFFIX, filename)
                 if (verbose):
@@ -234,6 +250,8 @@ def download(targets):
                 print "Download interrupted"
             if (os.stat(srtfilename).st_size == 0):
                 os.remove(srtfilename)
+    print "\n"
+    
 
 # Print list of favourites.  
 def show_favs(targets):
@@ -243,6 +261,28 @@ def show_favs(targets):
         else:
             print "[ ]",
         print label
+
+def dataformat(b):
+    #return 'ff'
+    if (b < 1024):
+        return "%d B" % b
+    b = b/1024
+    if (b < 1024):
+       return "%d KB" % b
+    b = b/1024
+    if (b < 1024):
+        return "%d MB" % b
+    b = b/1024
+    return "%d GB" % b
+    
+def timeformat(s):
+    if (s<0):
+        return "00:00:00"
+    h = floor(s/(60*60))
+    s = s-h*60*60
+    m = floor(s/60)
+    s = s-m*60
+    return "%02d:%02d:%02d" % (h,m,s)
 
 # Progress bar display for urllib.urlretrieve function.  
 def progressbar(count, blockSize, totalSize):
@@ -254,15 +294,15 @@ def progressbar(count, blockSize, totalSize):
         blocks = 0
     sys.stdout.write("\r["+blocks*'='+(BAR_WIDTH-blocks)*' '+'] '+'%d%% ' % percent)
     #sys.stdout.write('%d KiB ' % (count * blockSize/(1024)))
-    sys.stdout.write('of %.2f GB ' % (totalSize/(1024*1024*1024)))
-    kbps_speed = (count*blockSize)/(1024*(time.time() - stime))
-    sys.stdout.write('at %d KB/s ' % kbps_speed)
-    if kbps_speed > 0:
-        eta = (totalSize - count*blockSize) / (1024*kbps_speed)
+    sys.stdout.write('of %s ' % dataformat(totalSize))
+    bps_speed = (count*blockSize)/(timer.gettime())
+    sys.stdout.write('at %s/s ' % dataformat(bps_speed))
+    if bps_speed > 0:
+        eta = (totalSize - count*blockSize) / (bps_speed)
     else:
         eta = 0
-    sys.stdout.write('ETA: %d min' % round(eta/60, 2))
-    sys.stdout.write(14*' ')
+    sys.stdout.write('ETA: %s' % timeformat(eta))
+    sys.stdout.write(4*' ')
     sys.stdout.flush()
 
 # Return a suitable file name for configuration options.  
@@ -296,9 +336,9 @@ def main(argv):
     global prompt
     global show
     global settings
-    global stime
+    global timer
     
-    stime = time.time()
+    timer = Timer()
     exp_settings = {}
 
     # Processing of command line options using getopt.  
