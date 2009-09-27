@@ -19,10 +19,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+__version__ = "$Revision$"
+# $Source$
+
 import urllib, urllib2 , re, os, htmlentitydefs, sys, getopt, httplib2, shutil, time
 from string import split, replace, find
 from math import floor
 
+# A stop watch utility to estimate the download time and speed.  
 class Timer:
     def __init__(self):
         self.t = time.time()
@@ -31,7 +35,12 @@ class Timer:
     def reset(self):
         self.t = time.time()
 
-
+def cursor_hide():
+    sys.stdout.write('\033[?25l')
+    
+def cursor_unhide():
+    sys.stdout.write('\033[?25h')
+    
 # Usage message
 def usage():
     print "Usage: tvkaista-download [-hvfupsd]"
@@ -44,6 +53,7 @@ def usage():
     print "           -p         password"
     print "           -f         video format (iTunes/flv/h264/ts/help)"
     print "           -d         download directory"
+    print "           --alpha    use alpha.tvkaista.fi"
     print ""
 
 # List available video formats.  
@@ -126,6 +136,7 @@ def filesuffix(format):
       'ts':     'ts'
     }[format]
 
+# Map from format types into file suffices
 def formatstring(format):
     return {
       'iTunes': 'mp4',
@@ -158,9 +169,7 @@ def unescape(text):
 # Login to tvkaista.fi (required for each action)
 def login():
     loginurl = 'http://www.tvkaista.fi/netpvr/Login'
-    #loginurl = 'http://alpha.tvkaista.fi/login'
     body = {'action': 'login', 'username': settings['username'], 'password': settings['password'], 'rememberme':'on'}
-    global headers
     headers = {'Content-type': 'application/x-www-form-urlencoded'}
     response, content = http.request(loginurl, 'POST', headers=headers, body=urllib.urlencode(body))
     return response['set-cookie']
@@ -171,10 +180,8 @@ def feedreader(channel):
     targets = []
     headers['Cookie'] = login()
     curl = 'www.tvkaista.fi/'
-    #curl = 'alpha.tvkaista.fi/'
     # Use RSS stream for iTunes to read program info.  
     favurl = 'http://%snetpvr/Feed?channel=%s&format=mp4&extension=itunes' % (curl, channel)
-    #favurl = 'http://alpha.tvkaista.fi/feed/playlist/mp4.rss'
     response, content = http.request(favurl, 'GET', headers=headers)
     if (response['status'] == '401'):
         print "HTTP/401 (Unauthorized) Could not login to tvkaista.fi."
@@ -190,7 +197,7 @@ def feedreader(channel):
     temp_length = re.compile('<itunes:duration>(.*)</itunes:duration>', re.IGNORECASE).findall(content)
     temp_idn = re.compile('<guid>http://www.tvkaista.fi/netpvr/Search\?id=(\d+)</guid>', re.IGNORECASE).findall(content)
     temp_channel.remove('TVkaista NetPVR')
-    temp_date.pop(0)
+    temp_date.pop(0) # Remove the date of the XML file itself
     for progurl,progdate,progname,channel,idn in zip(temp_url,temp_date,temp_name,temp_channel,temp_idn):
         progname = progname.replace('&apos;', "'")
         #progdesc = progdesc.replace('&apos;', "'")
@@ -215,6 +222,60 @@ def feedreader(channel):
 	targets.append([fileurl,filename,srturl,srtfilename,label])
     return targets
 
+# Download the list of favorite recordings and build a list of download targets.
+# Original code from tvkaistaforxbmc plugin
+def feedreader_alpha(channel):
+    targets = []
+    # Alpha-site specific code
+    favurl = 'http://alpha.tvkaista.fi/feed/playlist/mp4.rss'
+    passman = urllib2.HTTPPasswordMgrWithDefaultRealm()
+    passman.add_password(None, favurl, settings['username'], settings['password'])
+    authhandler = urllib2.HTTPBasicAuthHandler(passman)
+    opener = urllib2.build_opener(authhandler)
+    urllib2.install_opener(opener)
+    content = urllib2.urlopen(favurl).read()
+    
+    #response, content = http.request(favurl, 'GET', headers=headers)
+    #if (response['status'] == '401'):
+    #    print "HTTP/401 (Unauthorized) Could not login to tvkaista.fi."
+    #    sys.exit(1)
+    #elif (response['status'] == '404'):
+    #    print "HTTP/404 (Not Found) Feed XML file was not found."
+    #    sys.exit(1)
+    
+    temp_date = re.compile('<pubDate>(.*) [+]\d*</pubDate>', re.IGNORECASE).findall(content)
+    temp_name = re.compile('<item>\s*<title>(.*)</title>', re.IGNORECASE).findall(content)
+    temp_channel = re.compile('<itunes:author>(.*)</itunes:author>', re.IGNORECASE).findall(content)
+    temp_channel = ['alpha']*len(temp_name)
+    temp_length = re.compile('<itunes:duration>(.*)</itunes:duration>', re.IGNORECASE).findall(content)
+    temp_length = ['duration']*len(temp_name)
+    temp_url = re.compile(r'<enclosure url="http://alpha[.]tvkaista[.]fi/recordings/download/(\d*)[.]mp4"', re.IGNORECASE).findall(content)
+    temp_idn = temp_url
+    temp_date.pop(0) # Remove the date of the XML file itself
+    
+    for progurl,progdate,progname,channel,idn in zip(temp_url,temp_date,temp_name,temp_channel,temp_idn):
+        progname = progname.replace('&apos;', "'")
+        year = re.compile(r"\w*, \d* \w* (\d*) \d*:\d*:\d*", re.IGNORECASE).findall(progdate)
+        month = re.compile(r"\w*, \d* (\w*) \d* \d*:\d*:\d*", re.IGNORECASE).findall(progdate)
+        day = re.compile(r"\w*, (\d*) \w* \d* \d*:\d*:\d*", re.IGNORECASE).findall(progdate)
+        clocktime = re.compile(r"\w*, \d* \w* \d* (\d*:\d*):\d*", re.IGNORECASE).findall(progdate)
+        xbdate = '%s-%s-%s' % (year[0], rfc822month(month[0]), day[0])
+        fileurl = 'http://%s:%s@%srecordings/download/%s.%s' % (urllib.quote(settings['username']), \
+                  urllib.quote(settings['password']),curl, progurl,formatstring(settings['format']))
+        srturl = 'http://%s:%s@%srecordings/download/%s.srt' % (urllib.quote(settings['username']), \
+                 urllib.quote(settings['password']),curl, progurl)
+        filename = '%s%s_%s_%s_%s.%s' % (settings['downloaddir'],unescape(progname).replace(" ","_"),xbdate, \
+                   channel.replace(" ","-"),idn,filesuffix(settings['format']))
+        srtfilename = '%s%s_%s_%s_%s.srt' % (settings['downloaddir'],unescape(progname).replace(" ","_"),xbdate, \
+                   channel.replace(" ","-"),idn)
+        label = '%s klo %s (%s): %s' % (xbdate, clocktime[0],channel,unescape(progname))
+        if (prompt and not os.path.exists(filename)):
+            print label
+	    if (raw_input('Download (Y/n) ') in ['n']):
+	        continue
+	targets.append([fileurl,filename,srturl,srtfilename,label])
+    return targets
+
 # Download video files and subtitles.  
 def download(targets):
 
@@ -229,15 +290,16 @@ def download(targets):
             continue
         else:
             try:
-                sys.stdout.write('\033[?25l') # Hide cursos
+                cursor_hide()
                 urllib.urlretrieve(fileurl, filename+TMP_SUFFIX, reporthook=progressbar)
-                sys.stdout.write('\033[?25h') # Show cursor
+                cursos_unhide()
                 if (os.path.exists(filename+TMP_SUFFIX)):
                     shutil.move(filename+TMP_SUFFIX, filename)
                 if (verbose):
                     print "Saved file "+filename
             except:
-                print "Download interrupted"
+                cursor_unhide()
+                print "\nDownload interrupted"
         # Download subtitle file. Remove if empty.  
         if (verbose):
             print "Downloading subtitle file from " + srturl
@@ -247,7 +309,45 @@ def download(targets):
                 if (os.path.exists(srtfilename+TMP_SUFFIX)):
                     shutil.move(srtfilename+TMP_SUFFIX, srtfilename)
             except:
-                print "Download interrupted"
+                print "\nDownload interrupted"
+            if (os.stat(srtfilename).st_size == 0):
+                os.remove(srtfilename)
+    print "\n"
+
+# Download from alpha.tvkaista.fi instead of the main site.  
+def download_alpha(targets):
+
+    for fileurl,filename,srturl,srtfilename,label in targets:
+        print "\n" + label
+        timer.reset()
+        # Download video file. 
+        if (verbose):
+            print "Downloading video file from " + fileurl
+        if (os.path.exists(filename)):
+            sys.stdout.write("\r["+BAR_WIDTH*'='+'] (done)\n')
+            continue
+        else:
+            try:
+                cursor_hide()
+                urllib.urlretrieve(fileurl, filename+TMP_SUFFIX, reporthook=progressbar)
+                cursor_unhide()
+                if (os.path.exists(filename+TMP_SUFFIX)):
+                    shutil.move(filename+TMP_SUFFIX, filename)
+                if (verbose):
+                    print "Saved file "+filename
+            except:
+                cursor_unhide()
+                print "\nDownload interrupted"
+        # Download subtitle file. Remove if empty.  
+        if (verbose):
+            print "Downloading subtitle file from " + srturl
+        if (not os.path.exists(srtfilename)):
+            try:
+                urllib.urlretrieve(srturl, srtfilename+TMP_SUFFIX)
+                if (os.path.exists(srtfilename+TMP_SUFFIX)):
+                    shutil.move(srtfilename+TMP_SUFFIX, srtfilename)
+            except:
+                print "\nDownload interrupted"
             if (os.stat(srtfilename).st_size == 0):
                 os.remove(srtfilename)
     print "\n"
@@ -262,18 +362,18 @@ def show_favs(targets):
             print "[ ]",
         print label
 
+# Format raw byte count into reasonable units.  
 def dataformat(b):
-    #return 'ff'
     if (b < 1024):
-        return "%d B" % b
+        return "%d bytes" % b
     b = b/1024
     if (b < 1024):
-       return "%d KB" % b
+       return "%d KiB" % b
     b = b/1024
     if (b < 1024):
-        return "%d MB" % b
+        return "%d MiB" % b
     b = b/1024
-    return "%d GB" % b
+    return "%d GiB" % b
     
 def timeformat(s):
     if (s<0):
@@ -337,6 +437,7 @@ def main(argv):
     global show
     global settings
     global timer
+    global alpha
     
     timer = Timer()
     exp_settings = {}
@@ -344,7 +445,7 @@ def main(argv):
     # Processing of command line options using getopt.  
     try:
         opts, args = getopt.getopt(argv, "hvpsf:u:p:d:", \
-                       ["help","verbose","format=","username=", \
+                       ["help","verbose","alpha","format=","username=", \
                         "password=","downloaddir="])
     except getopt.GetoptError:
         usage()
@@ -357,6 +458,8 @@ def main(argv):
             verbose = True
         elif opt in ("-p", "--prompt"):
             prompt = True
+        elif opt in ("--alpha"):
+            alpha = True
         elif opt in ("-s", "--show"):
             show = True
         elif opt in ("-f", "--format"):
@@ -393,12 +496,20 @@ def main(argv):
     # Processing of configuration and options is now complete
     # and we're ready to download.
     #targets = feedreader('favourites')
-    targets = feedreader('Playlist')
+    
+    
+    if alpha:
+        targets = feedreader_alpha('Playlist')
+    else:
+        targets = feedreader('Playlist')
 
     if (show):
         show_favs(targets)
     else:
-        download(targets)
+        if alpha:
+            download_alpha(targets)
+        else:
+            download(targets)
     sys.exit()
 
 
@@ -417,6 +528,7 @@ formats = ['iTunes','flv','h264','ts']
 verbose = False
 prompt = False
 show = False
+alpha = False
 
 
 if __name__ == "__main__":
