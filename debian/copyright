@@ -1,5 +1,5 @@
 This package was debianized by Matti Pöllä <mpo@iki.fi> on
-Fri, 25 Sep 2009 11:42:51 +0300.
+Fri, 25 Sep 2009 17:11:41 +0300.
 
 It was downloaded from http://code.google.com/tvkaista-download/, which is also the
 homepage of the project.
@@ -12,4 +12,5 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 The Debian packaging is (C) 2009, Matti Pöllä <mpo@iki.fi> and
-is licensed under the GPL, see `/usr/share/common-licenses/GPL'.
+is licensed under the GPL, see `/usr/share/common-licenses/GPL-3'.
+
