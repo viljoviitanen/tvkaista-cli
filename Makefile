@@ -28,4 +28,4 @@ uninstall:
 	-rm -rf /usr/lib/python2.5/site-packages/tvkaista-download*
 
 clean:
-	rm -rf ./build ./dist ./MANIFEST
+	rm -rf ./build ./dist ./MANIFEST ./tvkaista_download.egg-info
