@@ -10,4 +10,6 @@ include /usr/share/cdbs/1/rules/debhelper.mk
 include /usr/share/cdbs/1/rules/simple-patchsys.mk
 include /usr/share/cdbs/1/class/python-distutils.mk
 
+binary-install/tvkaista-download::
+	dh_installman debian/*.1
 
