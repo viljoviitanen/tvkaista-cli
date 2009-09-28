@@ -2,14 +2,16 @@ Source: tvkaista-download
 Section: web
 Priority: extra
 Maintainer: Matti Pöllä <mpo@iki.fi>
-Build-Depends: python, cdbs, debhelper (>= 5), python-docutils, python-central (>= 0.5), python-setuptools
-XS-Python-Version: 2.4, 2.5
+Build-Depends: python, cdbs, debhelper (>= 5), python-central (>= 0.5), python-setuptools
+XS-Python-Version: >= 2.4
 Standards-Version: 3.8.0
 
 Package: tvkaista-download
 Architecture: all
-Depends: python (>= 2.4), python-central (>= 0.5), python-pkg-resources
+Depends: python (>= 2.4), python-central (>= 0.5), python-pkg-resources, ${misc:Depends}
 XB-Python-Version: ${python:Versions}
-Description: download tvkaista recordings
- Download from tvkaista.
- .
+Description: Batch download recordings from tvkaista.fi PVR service
+ TVkaista.fi is a PVR (personal video recorder) service with a www 
+ interface. This script allows registered tvkaista users to download 
+ the set of favorite recordings.
+ 
