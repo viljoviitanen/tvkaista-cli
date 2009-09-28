@@ -1,0 +1,13 @@
+tvkaista-download - batch download recordings from tvkaista.fi PVR service
+
+  http://code.google.com/p/tvkaista-download/
+
+English summary: TVkaista.fi is a PVR (personal video recorder) service with a 
+www interface. This script allows registered tvkaista users to download the set 
+of favorite recordings.
+
+TVkaista.fi on tallentava digiboksipalvelu, jota käytetään nettikäyttöliittymän 
+avulla. Tämä skirpti mahdollistaa suosikkiohjelmien lataamisen omalle 
+tietokoneelle kätevästi yhdellä komennolla. Käyttääksesi tätä ohjelmaa, sinulla 
+täytyy olla tunnus TVkaista.fi -palveluun.
+
