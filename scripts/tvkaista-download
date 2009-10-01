@@ -22,9 +22,10 @@
 __version__ = "$Revision$"
 # $Source$
 
-import urllib, urllib2 , re, os, htmlentitydefs, sys, getopt, httplib2, shutil, time
+import urllib, urllib2 , re, os, htmlentitydefs, sys, getopt, httplib2, shutil, time, datetime
 from string import split, replace, find
 from math import floor
+from xml.dom import minidom
 
 # A stop watch utility to estimate the download time and speed.  
 class Timer:
@@ -34,6 +35,47 @@ class Timer:
         return time.time() - self.t
     def reset(self):
         self.t = time.time()
+        
+class DlItem:
+    def __init__(self,idn,length,title,date,time,vurl,surl,vfile,sfile):
+        self.idn = idn
+        self.length = int(length)
+        self.title = title
+        self.date = date
+        self.time = time
+        self.vurl = vurl
+        self.surl = surl
+        self.vfile = vfile
+        self.sfile = sfile
+    def download(self):
+        print self.label()        
+        if (os.path.exists(self.vfile)):
+            sys.stdout.write("\r["+BAR_WIDTH*'='+'] (done)\n')
+        else:
+            try:
+                cursor_hide()
+                urllib.urlretrieve(self.vurl, self.vfile+TMP_SUFFIX, reporthook=progressbar)
+                cursor_unhide()
+                if (os.path.exists(self.vfile+TMP_SUFFIX)):
+                    shutil.move(self.vfile+TMP_SUFFIX, self.vfile)
+            except:
+                cursor_unhide()
+                print "\nDownload interrupted"
+        # Download subtitle file. Remove if empty.  
+        if (not os.path.exists(self.sfile)):
+            try:
+                urllib.urlretrieve(self.surl, self.sfile+TMP_SUFFIX)
+                if (os.path.exists(self.sfile+TMP_SUFFIX)):
+                    shutil.move(self.sfile+TMP_SUFFIX, self.sfile)
+            except:
+                print "\nDownload interrupted"
+            if (os.stat(self.sfile).st_size == 0):
+                os.remove(self.sfile)
+    print "\n"
+        
+    def label(self):
+        return self.date + " " +  self.time + " " + self.title + \
+        " (" + settings['format'] + ", " + dataformat(self.length) + ")"
 
 def cursor_hide():
     sys.stdout.write('\033[?25l')
@@ -214,61 +256,6 @@ def feedreader(channel):
                    channel.replace(" ","-"),idn,filesuffix(settings['format']))
         srtfilename = '%s%s_%s_%s_%s.srt' % (settings['downloaddir'],unescape(progname).replace(" ","_"),xbdate, \
                    channel.replace(" ","-"),idn)
-        label = '%s klo %s (%s): %s' % (xbdate, clocktime[0],channel,unescape(progname)) 
-        if (prompt and not os.path.exists(filename)):
-            print label
-	    if (raw_input('Download (Y/n) ') in ['n']):
-	        continue
-	targets.append([fileurl,filename,srturl,srtfilename,label])
-    return targets
-
-# Download the list of favorite recordings and build a list of download targets.
-# Original code from tvkaistaforxbmc plugin
-def feedreader_alpha(channel):
-    targets = []
-    curl = 'alpha.tvkaista.fi/'
-    # Alpha-site specific code
-    favurl = 'http://alpha.tvkaista.fi/feed/playlist/mp4.rss'
-    passman = urllib2.HTTPPasswordMgrWithDefaultRealm()
-    passman.add_password(None, favurl, settings['username'], settings['password'])
-    authhandler = urllib2.HTTPBasicAuthHandler(passman)
-    opener = urllib2.build_opener(authhandler)
-    urllib2.install_opener(opener)
-    content = urllib2.urlopen(favurl).read()
-    
-    #response, content = http.request(favurl, 'GET', headers=headers)
-    #if (response['status'] == '401'):
-    #    print "HTTP/401 (Unauthorized) Could not login to tvkaista.fi."
-    #    sys.exit(1)
-    #elif (response['status'] == '404'):
-    #    print "HTTP/404 (Not Found) Feed XML file was not found."
-    #    sys.exit(1)
-    
-    temp_date = re.compile('<pubDate>(.*) [+]\d*</pubDate>', re.IGNORECASE).findall(content)
-    temp_name = re.compile('<item>\s*<title>(.*)</title>', re.IGNORECASE).findall(content)
-    temp_channel = re.compile('<itunes:author>(.*)</itunes:author>', re.IGNORECASE).findall(content)
-    temp_channel = ['alpha']*len(temp_name)
-    temp_length = re.compile('<itunes:duration>(.*)</itunes:duration>', re.IGNORECASE).findall(content)
-    temp_length = ['duration']*len(temp_name)
-    temp_url = re.compile(r'<enclosure url="http://alpha[.]tvkaista[.]fi/recordings/download/(\d*)[.]mp4"', re.IGNORECASE).findall(content)
-    temp_idn = temp_url
-    temp_date.pop(0) # Remove the date of the XML file itself
-    
-    for progurl,progdate,progname,channel,idn in zip(temp_url,temp_date,temp_name,temp_channel,temp_idn):
-        progname = progname.replace('&apos;', "'")
-        year = re.compile(r"\w*, \d* \w* (\d*) \d*:\d*:\d*", re.IGNORECASE).findall(progdate)
-        month = re.compile(r"\w*, \d* (\w*) \d* \d*:\d*:\d*", re.IGNORECASE).findall(progdate)
-        day = re.compile(r"\w*, (\d*) \w* \d* \d*:\d*:\d*", re.IGNORECASE).findall(progdate)
-        clocktime = re.compile(r"\w*, \d* \w* \d* (\d*:\d*):\d*", re.IGNORECASE).findall(progdate)
-        xbdate = '%s-%s-%s' % (year[0], rfc822month(month[0]), day[0])
-        fileurl = 'http://%s:%s@%srecordings/download/%s.%s' % (urllib.quote(settings['username']), \
-                  urllib.quote(settings['password']),curl, progurl,formatstring(settings['format']))
-        srturl = 'http://%s:%s@%srecordings/download/%s.srt' % (urllib.quote(settings['username']), \
-                 urllib.quote(settings['password']),curl, progurl)
-        filename = '%s%s_%s_%s_%s.%s' % (settings['downloaddir'],unescape(progname).replace(" ","_"),xbdate, \
-                   channel.replace(" ","-"),idn,filesuffix(settings['format']))
-        srtfilename = '%s%s_%s_%s_%s.srt' % (settings['downloaddir'],unescape(progname).replace(" ","_"),xbdate, \
-                   channel.replace(" ","-"),idn)
         label = '%s klo %s (%s): %s' % (xbdate, clocktime[0],channel,unescape(progname))
         if (prompt and not os.path.exists(filename)):
             print label
@@ -276,6 +263,39 @@ def feedreader_alpha(channel):
 	        continue
 	targets.append([fileurl,filename,srturl,srtfilename,label])
     return targets
+
+# Parse a list of download targets from a RSS file
+def feedreader_alpha(channel):
+    targets = []
+    favurl = 'http://alpha.tvkaista.fi/feed/playlist/'+settings['format']+'.rss'
+    passman = urllib2.HTTPPasswordMgrWithDefaultRealm()
+    passman.add_password(None, favurl, settings['username'], settings['password'])
+    opener = urllib2.build_opener(urllib2.HTTPBasicAuthHandler(passman))
+    urllib2.install_opener(opener)
+    content = urllib2.urlopen(favurl).read()
+
+    dom = minidom.parseString(content)
+    it = dom.getElementsByTagName('item')
+    items = [object.childNodes[0].nodeValue for object in dom.getElementsByTagName('item')]
+    ret = []
+    for item in it:
+        ptit = item.getElementsByTagName('title')[0].childNodes[0].nodeValue.replace(" ","_")
+        pvurl = item.getElementsByTagName('enclosure')[0].attributes['url'].value.replace("http://","http://"+settings['username']+":"+settings['password']+"@")
+        psurl = item.getElementsByTagName('enclosure')[0].attributes['url'].value.replace("http://","http://"+settings['username']+":"+settings['password']+"@")
+        plen = item.getElementsByTagName('enclosure')[0].attributes['length'].value
+        pdat = time.strftime("%Y-%m-%d",time.localtime(time.mktime(time.strptime(item.getElementsByTagName('pubDate')[0].childNodes[0].nodeValue, "%a, %d %b %Y %H:%M:%S +0000"))))
+        ptim = "klo " + time.strftime("%H:%M",time.localtime(time.mktime(time.strptime(item.getElementsByTagName('pubDate')[0].childNodes[0].nodeValue, "%a, %d %b %Y %H:%M:%S +0000"))))
+        pid = re.compile('http://.*.tvkaista.fi/recordings/download/(\d+)[.]\w+').findall(pvurl)[0]
+        pvfi = settings['downloaddir'] + ptit + "_" + pdat + "_" + pid + "." + filesuffix(settings['format'])
+        psfi = settings['downloaddir'] + ptit + "_" + pdat + "_" + pid + SUB_SUFFIX
+        dlitem = DlItem(pid,plen,ptit,pdat,ptim,pvurl,psurl,pvfi,psfi)
+        if (prompt and not os.path.exists(pvfi)):
+            print dlitem.label()
+	    if (raw_input('Download (Y/n) ') in ['n']):
+	        continue
+	ret.append(dlitem)
+    dom.unlink()
+    return ret
 
 # Download video files and subtitles.  
 def download(targets):
@@ -314,45 +334,6 @@ def download(targets):
             if (os.stat(srtfilename).st_size == 0):
                 os.remove(srtfilename)
     print "\n"
-
-# Download from alpha.tvkaista.fi instead of the main site.  
-def download_alpha(targets):
-
-    for fileurl,filename,srturl,srtfilename,label in targets:
-        print "\n" + label
-        timer.reset()
-        # Download video file. 
-        if (verbose):
-            print "Downloading video file from " + fileurl
-        if (os.path.exists(filename)):
-            sys.stdout.write("\r["+BAR_WIDTH*'='+'] (done)\n')
-            continue
-        else:
-            try:
-                cursor_hide()
-                urllib.urlretrieve(fileurl, filename+TMP_SUFFIX, reporthook=progressbar)
-                cursor_unhide()
-                if (os.path.exists(filename+TMP_SUFFIX)):
-                    shutil.move(filename+TMP_SUFFIX, filename)
-                if (verbose):
-                    print "Saved file "+filename
-            except:
-                cursor_unhide()
-                print "\nDownload interrupted"
-        # Download subtitle file. Remove if empty.  
-        if (verbose):
-            print "Downloading subtitle file from " + srturl
-        if (not os.path.exists(srtfilename)):
-            try:
-                urllib.urlretrieve(srturl, srtfilename+TMP_SUFFIX)
-                if (os.path.exists(srtfilename+TMP_SUFFIX)):
-                    shutil.move(srtfilename+TMP_SUFFIX, srtfilename)
-            except:
-                print "\nDownload interrupted"
-            if (os.stat(srtfilename).st_size == 0):
-                os.remove(srtfilename)
-    print "\n"
-    
 
 # Print list of favourites.  
 def show_favs(targets):
@@ -500,7 +481,7 @@ def main(argv):
     
     
     if alpha:
-        targets = feedreader_alpha('Playlist')
+        atargets = feedreader_alpha('Playlist')
     else:
         targets = feedreader('Playlist')
 
@@ -508,7 +489,7 @@ def main(argv):
         show_favs(targets)
     else:
         if alpha:
-            download_alpha(targets)
+            [d.download() for d in atargets]
         else:
             download(targets)
     sys.exit()
@@ -516,6 +497,7 @@ def main(argv):
 
 # File name suffix for incomplete downloads
 TMP_SUFFIX = '.part'
+SUB_SUFFIX = '.srt'
 # Progress bar width
 BAR_WIDTH = 70
 # HTTP headers
