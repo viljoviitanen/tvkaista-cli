@@ -267,12 +267,16 @@ def feedreader(channel):
 # Parse a list of download targets from a RSS file
 def feedreader_alpha(channel):
     targets = []
-    favurl = 'http://alpha.tvkaista.fi/feed/playlist/'+settings['format']+'.rss'
+    favurl = 'http://alpha.tvkaista.fi/feed/playlist/'+formatstring(settings['format'])+'.rss'
     passman = urllib2.HTTPPasswordMgrWithDefaultRealm()
     passman.add_password(None, favurl, settings['username'], settings['password'])
     opener = urllib2.build_opener(urllib2.HTTPBasicAuthHandler(passman))
     urllib2.install_opener(opener)
-    content = urllib2.urlopen(favurl).read()
+    try:
+        content = urllib2.urlopen(favurl).read()
+    except(urllib2.HTTPError):
+        print "HTTP 404 Error: " + favurl
+        exit(1)
 
     dom = minidom.parseString(content)
     it = dom.getElementsByTagName('item')
