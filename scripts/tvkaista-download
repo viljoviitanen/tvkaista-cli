@@ -116,13 +116,14 @@ def usage():
     print ""
     print " Options:  -h --help  show this message"
     print "           -v         print more information"
-    print "           -p         prompt before downloading"
+    print "           --prompt   prompt before downloading"
     print "           -s         show list of favourites"
     print "           -u         username"
     print "           -p         password"
     print "           -f         video format (iTunes/flv/h264/ts/help)"
     print "           -d         download directory"
     print "           --alpha    use alpha.tvkaista.fi"
+    print "           --seasons  download seasons feed"
     print ""
 
 # List available video formats.  
