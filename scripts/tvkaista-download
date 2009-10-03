@@ -442,8 +442,8 @@ def main(argv):
     valid_settings(settings, True)
 
     # Debug: print all settings
-    for k in att:
-        print k+": "+settings[k]
+    #for k in att:
+    #    print k+": "+settings[k]
 
     # Processing of configuration and options is now complete
     # and we're ready to download.
