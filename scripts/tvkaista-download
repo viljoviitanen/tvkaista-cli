@@ -57,14 +57,14 @@ class Program:
         self.vurl = "http://"+settings['username']+":"+settings['password']+urlbase+pid+"."+filesuffix(settings['format'])
         self.surl = "http://"+settings['username']+":"+settings['password']+urlbase+pid+""+SUB_SUFFIX
         self.vfile = settings['downloaddir'] + ptit + "_" + self.date + "_" + pid + "." + filesuffix(settings['format'])
-        self.sfile = settings['downloaddir'] + ptit + "_" + self.date + "_" + pid + "." + SUB_SUFFIX
+        self.sfile = settings['downloaddir'] + ptit + "_" + self.date + "_" + pid + "" + SUB_SUFFIX
 
     def download(self):
         """
         The download method executes the actual download process of 
         a video/subtitle file.
         """
-        print self.label()        
+        print self.label()
         if (os.path.exists(self.vfile)):
             sys.stdout.write("\r["+BAR_WIDTH*'='+'] (done)\n')
         else:
@@ -81,7 +81,7 @@ class Program:
         # Download subtitle file. Remove if empty.  
         if (not os.path.exists(self.sfile)):
             try:
-                print "Trying to download from "+ self.surl
+                #print "Trying to download from "+ self.surl
                 urllib.urlretrieve(self.surl, self.sfile+TMP_SUFFIX)
                 if (os.path.exists(self.sfile+TMP_SUFFIX)):
                     shutil.move(self.sfile+TMP_SUFFIX, self.sfile)
@@ -89,10 +89,9 @@ class Program:
                 print "\nDownload interrupted"
             if (os.stat(self.sfile).st_size == 0):
                 os.remove(self.sfile)
-    print "\n"
     
     def downloaded(self):
-        return os.path.exists(self.vfile)
+        return True if os.path.exists(self.vfile) else False
     
     def label(self):
         return self.date + " " +  self.time + " " + self.title + \
@@ -249,9 +248,10 @@ def login():
 def feedreader(channel):
     targets = []
     headers['Cookie'] = login()
-    curl = 'www.tvkaista.fi/'
-    # Use RSS stream for iTunes to read program info.  
-    favurl = 'http://www.tvkaista.fi/netpvr/Feed?channel=%s&format=%s&extension=itunes' % (channel,settings['format'])
+    if (channel == 'list'):
+        favurl = 'http://www.tvkaista.fi/netpvr/Feed?channel=Playlist&format=%s&extension=itunes' % (settings['format'])
+    elif (channel == 'seasons'):
+        favurl = 'http://www.tvkaista.fi/netpvr/Feed?channel=seasonpass&format='+formatstring(settings['format'])+'&extension=itunes'
     response, content = http.request(favurl, 'GET', headers=headers)
     if (response['status'] == '401'):
         print "HTTP/401 (Unauthorized) Could not login to tvkaista.fi."
@@ -265,23 +265,25 @@ def feedreader(channel):
     ret = []
     for i in items:
         ptit = i.getElementsByTagName('title')[0].childNodes[0].nodeValue.replace(" ","_")
-        plen = 1;
         pgui= i.getElementsByTagName('guid')[0].childNodes[0].nodeValue
         pdt = time.mktime(time.strptime(i.getElementsByTagName('pubDate')[0].childNodes[0].nodeValue, "%a, %d %b %Y %H:%M:%S +0300"))
         pid = re.compile('http://www.tvkaista.fi/netpvr/Search[?]id=(\d+)').findall(pgui)[0]
-        program = Program(pid,ptit,plen,pdt)
+        program = Program(pid,ptit,0,pdt)
         if (prompt and not program.downloaded()):
             print program.label()
-	    if (raw_input('Download (Y/n) ') in ['n']):
-	        continue
-	ret.append(program)
+        if (prompt and raw_input('Download (Y/n) ') == 'n'):
+            continue
+        ret.append(program)
     dom.unlink()
     return ret
 
 # Parse a list of download targets from a RSS file into a list of downloadable objects
 def feedreader_alpha(channel):
     targets = []
-    favurl = 'http://alpha.tvkaista.fi/feed/playlist/'+formatstring(settings['format'])+'.rss'
+    if (channel == 'list'):
+        favurl = 'http://alpha.tvkaista.fi/feed/playlist/'+formatstring(settings['format'])+'.rss'
+    elif (channel == 'seasons'):
+        favurl = 'http://alpha.tvkaista.fi/feed/seasonpasses/*/'+formatstring(settings['format'])+'.rss'
     passman = urllib2.HTTPPasswordMgrWithDefaultRealm()
     passman.add_password(None, favurl, settings['username'], settings['password'])
     opener = urllib2.build_opener(urllib2.HTTPBasicAuthHandler(passman))
@@ -303,9 +305,9 @@ def feedreader_alpha(channel):
         program = Program(pid,ptit,plen,pdt)
         if (prompt and not program.downloaded()):
             print program.label()
-	    if (raw_input('Download (Y/n) ') in ['n']):
-	        continue
-	ret.append(program)
+        if (prompt and raw_input('Download (Y/n) ') == 'n'):
+            continue
+        ret.append(program)
     dom.unlink()
     return ret
 
@@ -340,7 +342,6 @@ def progressbar(count, blockSize, totalSize):
         percent = 0
         blocks = 0
     sys.stdout.write("\r["+blocks*'='+(BAR_WIDTH-blocks)*' '+'] '+'%d%% ' % percent)
-    #sys.stdout.write('%d KiB ' % (count * blockSize/(1024)))
     sys.stdout.write('of %s ' % dataformat(totalSize))
     bps_speed = (count*blockSize)/(timer.gettime())
     sys.stdout.write('at %s/s ' % dataformat(bps_speed))
@@ -385,6 +386,7 @@ def main(argv):
     global settings
     global timer
     global alpha
+    global seasondl
     
     timer = Timer()
     exp_settings = {}
@@ -392,8 +394,8 @@ def main(argv):
     # Processing of command line options using getopt.  
     try:
         opts, args = getopt.getopt(argv, "hvpsf:u:p:d:", \
-                       ["help","verbose","alpha","format=","username=", \
-                        "password=","downloaddir="])
+                       ["help","verbose","prompt","show","format=","username=", \
+                        "password=","downloaddir=","alpha","seasons"])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
@@ -401,21 +403,23 @@ def main(argv):
         if opt in ("-h", "--help"):
             usage()                     
             sys.exit()
-        elif opt in ("-v", "--verbose"):
+        if opt in ("-v", "--verbose"):
             verbose = True
-        elif opt in ("-p", "--prompt"):
+        if (opt == "--prompt"):
             prompt = True
-        elif opt in ("--alpha"):
+        if (opt == "--alpha"):
             alpha = True
-        elif opt in ("-s", "--show"):
+        if (opt == "--seasons"):
+            seasondl = True
+        if opt in ("-s", "--show"):
             show = True
-        elif opt in ("-f", "--format"):
+        if opt in ("-f", "--format"):
             exp_settings['format'] = arg
-        elif opt in ("-u", "--username"):
+        if opt in ("-u", "--username"):
             exp_settings['username'] = arg
-        elif opt in ("-p", "--password"):
+        if opt in ("-p", "--password"):
             exp_settings['password'] = arg
-        elif opt in ("-d", "--downloaddir"):
+        if opt in ("-d", "--downloaddir"):
             exp_settings['downloaddir'] = arg
     
     # First see whether a configuration file is available.  
@@ -437,32 +441,25 @@ def main(argv):
     valid_settings(settings, True)
 
     # Debug: print all settings
-    #for k in att:
-    #    print k+": "+settings[k]
+    for k in att:
+        print k+": "+settings[k]
 
     # Processing of configuration and options is now complete
     # and we're ready to download.
     #targets = feedreader('favourites')
     
-    
-    if alpha:
-        targets = feedreader_alpha('Playlist')
-    else:
-        targets = feedreader('Playlist')
+    channel = 'seasons' if seasondl else 'list'
+    targets = feedreader_alpha(channel) if alpha else feedreader(channel)
 
     # Show list "-s"
     if (show):
+        sys.exit()
         for t in targets:
-            if (t.downloaded()):
-                print "[*] ",
-            else:
-                print "[ ] ",
-            print t.label()
-            
+            box = '[*] ' if t.downloaded() else '[ ] '
+            print box + t.label()
     else:
         [t.download() for t in targets]
     sys.exit()
-
 
 # File name suffix for incomplete downloads
 TMP_SUFFIX = '.part'
@@ -481,6 +478,7 @@ verbose = False
 prompt = False
 show = False
 alpha = False
+seasondl = False
 
 
 if __name__ == "__main__":
