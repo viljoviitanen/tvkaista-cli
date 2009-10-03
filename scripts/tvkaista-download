@@ -36,17 +36,18 @@ class Timer:
     def reset(self):
         self.t = time.time()
         
-class DlItem:
-    def __init__(self,idn,length,title,date,time,vurl,surl,vfile,sfile):
-        self.idn = idn
-        self.length = int(length)
-        self.title = title
-        self.date = date
-        self.time = time
-        self.vurl = vurl
-        self.surl = surl
-        self.vfile = vfile
-        self.sfile = sfile
+class AlphaProgram:
+    def __init__(self,pid,ptit,plen,pdt):
+        self.idn = pid
+        self.length = int(plen)
+        self.title = ptit
+        self.date = time.strftime("%Y-%m-%d",time.localtime(pdt))
+        self.time = "klo " + time.strftime("%H:%M",time.localtime(pdt))
+        self.vurl = "http://"+settings['username']+":"+settings['password']+"@alpha.tvkaista.fi/recordings/download/"+pid+"."+filesuffix(settings['format'])
+        self.surl = "http://"+settings['username']+":"+settings['password']+"@alpha.tvkaista.fi/recordings/download/"+pid+"."+SUB_SUFFIX
+        self.vfile = settings['downloaddir'] + ptit + "_" + self.date + "_" + pid + "." + filesuffix(settings['format'])
+        self.sfile = settings['downloaddir'] + ptit + "_" + self.date + "_" + pid + "." + SUB_SUFFIX
+        self.downloaded = False
     def download(self):
         print self.label()        
         if (os.path.exists(self.vfile)):
@@ -72,7 +73,10 @@ class DlItem:
             if (os.stat(self.sfile).st_size == 0):
                 os.remove(self.sfile)
     print "\n"
-        
+    
+    def downloaded(self):
+        return os.path.exists(self.vfile)
+    
     def label(self):
         return self.date + " " +  self.time + " " + self.title + \
         " (" + settings['format'] + ", " + dataformat(self.length) + ")"
@@ -264,7 +268,7 @@ def feedreader(channel):
 	targets.append([fileurl,filename,srturl,srtfilename,label])
     return targets
 
-# Parse a list of download targets from a RSS file
+# Parse a list of download targets from a RSS file into a list of downloadable objects
 def feedreader_alpha(channel):
     targets = []
     favurl = 'http://alpha.tvkaista.fi/feed/playlist/'+formatstring(settings['format'])+'.rss'
@@ -277,27 +281,21 @@ def feedreader_alpha(channel):
     except(urllib2.HTTPError):
         print "HTTP 404 Error: " + favurl
         exit(1)
-
     dom = minidom.parseString(content)
-    it = dom.getElementsByTagName('item')
-    items = [object.childNodes[0].nodeValue for object in dom.getElementsByTagName('item')]
+    items = dom.getElementsByTagName('item')
     ret = []
-    for item in it:
-        ptit = item.getElementsByTagName('title')[0].childNodes[0].nodeValue.replace(" ","_")
-        pvurl = item.getElementsByTagName('enclosure')[0].attributes['url'].value.replace("http://","http://"+settings['username']+":"+settings['password']+"@")
-        psurl = item.getElementsByTagName('enclosure')[0].attributes['url'].value.replace("http://","http://"+settings['username']+":"+settings['password']+"@")
-        plen = item.getElementsByTagName('enclosure')[0].attributes['length'].value
-        pdat = time.strftime("%Y-%m-%d",time.localtime(time.mktime(time.strptime(item.getElementsByTagName('pubDate')[0].childNodes[0].nodeValue, "%a, %d %b %Y %H:%M:%S +0000"))))
-        ptim = "klo " + time.strftime("%H:%M",time.localtime(time.mktime(time.strptime(item.getElementsByTagName('pubDate')[0].childNodes[0].nodeValue, "%a, %d %b %Y %H:%M:%S +0000"))))
-        pid = re.compile('http://.*.tvkaista.fi/recordings/download/(\d+)[.]\w+').findall(pvurl)[0]
-        pvfi = settings['downloaddir'] + ptit + "_" + pdat + "_" + pid + "." + filesuffix(settings['format'])
-        psfi = settings['downloaddir'] + ptit + "_" + pdat + "_" + pid + SUB_SUFFIX
-        dlitem = DlItem(pid,plen,ptit,pdat,ptim,pvurl,psurl,pvfi,psfi)
-        if (prompt and not os.path.exists(pvfi)):
-            print dlitem.label()
+    for i in items:
+        ptit = i.getElementsByTagName('title')[0].childNodes[0].nodeValue.replace(" ","_")
+        plen = i.getElementsByTagName('enclosure')[0].attributes['length'].value
+        plin= i.getElementsByTagName('link')[0].childNodes[0].nodeValue
+        pdt = time.mktime(time.strptime(i.getElementsByTagName('pubDate')[0].childNodes[0].nodeValue, "%a, %d %b %Y %H:%M:%S +0000"))
+        pid = re.compile('http://alpha.tvkaista.fi/search/[?]id=(\d+)').findall(plin)[0]
+        program = AlphaProgram(pid,ptit,plen,pdt)
+        if (prompt and not program.downloaded()):
+            print program.label()
 	    if (raw_input('Download (Y/n) ') in ['n']):
 	        continue
-	ret.append(dlitem)
+	ret.append(program)
     dom.unlink()
     return ret
 
