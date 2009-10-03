@@ -27,8 +27,11 @@ from string import split, replace, find
 from math import floor
 from xml.dom import minidom
 
-# A stop watch utility to estimate the download time and speed.  
 class Timer:
+    """
+    The Timer class is used as a stopwatch to estimate the 
+    download speed and remaining time.
+    """
     def __init__(self):
         self.t = time.time()
     def gettime(self):
@@ -38,6 +41,9 @@ class Timer:
         
         
 class Program:
+    """
+    The Programm class encapsulates a downloadable item.
+    """
     def __init__(self,pid,ptit,plen,pdt):
         self.idn = pid
         self.length = int(plen)
@@ -52,8 +58,12 @@ class Program:
         self.surl = "http://"+settings['username']+":"+settings['password']+urlbase+pid+""+SUB_SUFFIX
         self.vfile = settings['downloaddir'] + ptit + "_" + self.date + "_" + pid + "." + filesuffix(settings['format'])
         self.sfile = settings['downloaddir'] + ptit + "_" + self.date + "_" + pid + "." + SUB_SUFFIX
-        self.downloaded = False
+
     def download(self):
+        """
+        The download method executes the actual download process of 
+        a video/subtitle file.
+        """
         print self.label()        
         if (os.path.exists(self.vfile)):
             sys.stdout.write("\r["+BAR_WIDTH*'='+'] (done)\n')
@@ -89,9 +99,16 @@ class Program:
         " (" + settings['format'] + ", " + dataformat(self.length) + ")"
 
 def cursor_hide():
+    """
+    Hide the terminal cursor to reduce UI clutter.
+    """
     sys.stdout.write('\033[?25l')
     
 def cursor_unhide():
+    """
+    Make the cursor visible again after being
+    hidden during the download phase.
+    """
     sys.stdout.write('\033[?25h')
     
 # Usage message
@@ -292,15 +309,6 @@ def feedreader_alpha(channel):
     dom.unlink()
     return ret
 
-# Print list of favourites.  
-def show_favs(targets):
-    for fileurl,filename,srturl,srtfilename,label in targets:
-        if (os.path.exists(filename)):
-            print "[*]",
-        else:
-            print "[ ]",
-        print label
-
 # Format raw byte count into reasonable units.  
 def dataformat(b):
     if (b < 1024):
@@ -442,10 +450,17 @@ def main(argv):
     else:
         targets = feedreader('Playlist')
 
+    # Show list "-s"
     if (show):
-        show_favs(targets)
+        for t in targets:
+            if (t.downloaded()):
+                print "[*] ",
+            else:
+                print "[ ] ",
+            print t.label()
+            
     else:
-        [d.download() for d in targets]
+        [t.download() for t in targets]
     sys.exit()
 
 
