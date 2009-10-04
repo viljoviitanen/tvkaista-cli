@@ -399,8 +399,8 @@ def main(argv):
     global settings
     global timer
     global alpha
-    global seasondl
-    global search
+    global mode_season
+    global mode_search
     
     timer = Timer()
     exp_settings = {}
@@ -424,7 +424,7 @@ def main(argv):
         if (opt == "--alpha"):
             alpha = True
         if (opt == "--seasons"):
-            seasondl = True
+            mode_season = True
         if opt in ("-s", "--show"):
             show = True
         if opt in ("-f", "--format"):
@@ -432,7 +432,7 @@ def main(argv):
         if opt in ("-u", "--username"):
             exp_settings['username'] = arg
         if (opt == "--search"):
-            search = True
+            mode_search = True
             search_terms = arg       
         if opt in ("-p", "--password"):
             exp_settings['password'] = arg
@@ -460,12 +460,16 @@ def main(argv):
     # Debug: print all settings
     #for k in att:
     #    print k+": "+settings[k]
-
-    # Processing of configuration and options is now complete
-    # and we're ready to download.
-    #targets = feedreader('favourites')
     
-    if (search):
+    if sum([mode_search,mode_season]) > 1:
+        print "Options --search and --seasons cannot be used together."
+        sys.exit(0)
+        
+    if sum([prompt,show]) > 1:
+        print "Options --prompt and --show cannot be used together."
+        sys.exit(0)
+    
+    if (mode_search):
         if (alpha):
             feedurl = "http://alpha.tvkaista.fi/feed/search/title/" + \
             urllib.urlencode({'':search_terms})[1:]+"/"+formatstring(settings['format'])+".rss"
@@ -473,7 +477,7 @@ def main(argv):
             feedurl = "http://www.tvkaista.fi/netpvr/Feed?channel=search&" + \
             urllib.urlencode({'search':search_terms}) + \
             "&format="+formatstring(settings['format'])+"&extension=rss"
-    elif (seasondl):
+    elif (mode_season):
         if (alpha):
             feedurl = 'http://alpha.tvkaista.fi/feed/seasonpasses/*/' + \
             formatstring(settings['format'])+'.rss'
@@ -488,7 +492,6 @@ def main(argv):
             feedurl = "http://www.tvkaista.fi/netpvr/Feed?channel=Playlist&format=" + \
             settings['format'] + "&extension=itunes"
     
-    #channel = 'seasons' if seasondl else 'list'
     targets = feedreader_alpha(feedurl) if alpha else feedreader(feedurl)
 
     # Show list "-s"
@@ -498,7 +501,7 @@ def main(argv):
             print box + t.label()
     else:
         [t.download() for t in targets]
-    sys.exit()
+    sys.exit(0)
 
 # File name suffix for incomplete downloads
 TMP_SUFFIX = '.part'
@@ -517,8 +520,8 @@ verbose = False
 prompt = False
 show = False
 alpha = False
-seasondl = False
-search = False
+mode_season = False
+mode_search = False
 
 if __name__ == "__main__":
     main(sys.argv[1:])
