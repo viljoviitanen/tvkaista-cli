@@ -64,10 +64,17 @@ class Program:
             urlbase = "@alpha.tvkaista.fi/recordings/download/"
         else:
             urlbase = "@www.tvkaista.fi/netpvr/Download/"
-        self.vurl = "http://"+settings['username']+":"+settings['password']+urlbase+pid+"."+filesuffix(settings['format'])
-        self.surl = "http://"+settings['username']+":"+settings['password']+urlbase+pid+""+SUB_SUFFIX
-        self.vfile = settings['downloaddir'] + ptit.replace(" ","_") + "_" + self.date + "_" + pid + "." + filesuffix(settings['format'])
-        self.sfile = settings['downloaddir'] + ptit.replace(" ","_") + "_" + self.date + "_" + pid + "" + SUB_SUFFIX
+        self.vurl = "http://" + settings['username'] + ":" + \
+                    settings['password'] + urlbase+pid + "." + \
+                    filesuffix(settings['format'])
+        self.surl = "http://" + settings['username'] + ":" + \
+                    settings['password'] + urlbase+pid + "" + \
+                    SUB_SUFFIX
+        self.vfile = settings['downloaddir'] + ptit.replace(" ","_") + "_" + \
+                     self.date + "_" + pid + "." + \
+                     filesuffix(settings['format'])
+        self.sfile = settings['downloaddir'] + ptit.replace(" ","_") + "_" + \
+                     self.date + "_" + pid + "" + SUB_SUFFIX
 
     def download(self):
         """
@@ -80,7 +87,8 @@ class Program:
         else:
             try:
                 cursor_hide()
-                urllib.urlretrieve(self.vurl, self.vfile+TMP_SUFFIX, reporthook=progressbar)
+                urllib.urlretrieve(self.vurl, self.vfile+TMP_SUFFIX, \
+                reporthook=progressbar)
                 cursor_unhide()
                 if (os.path.exists(self.vfile+TMP_SUFFIX)):
                     shutil.move(self.vfile+TMP_SUFFIX, self.vfile)
@@ -247,9 +255,11 @@ def unescape(text):
 # Login to tvkaista.fi (required for each action)
 def login():
     loginurl = 'http://www.tvkaista.fi/netpvr/Login'
-    body = {'action': 'login', 'username': settings['username'], 'password': settings['password'], 'rememberme':'on'}
+    body = {'action': 'login', 'username': settings['username'], \
+            'password': settings['password'], 'rememberme':'on'}
     headers = {'Content-type': 'application/x-www-form-urlencoded'}
-    response, content = http.request(loginurl, 'POST', headers=headers, body=urllib.urlencode(body))
+    response, content = http.request(loginurl, 'POST', \
+                        headers=headers, body=urllib.urlencode(body))
     return response['set-cookie']
 
 # Download the list of favorite recordings and build a list of download targets.  
@@ -318,22 +328,22 @@ def feedreader_alpha(feedurl):
 def dataformat(b):
     if (b < 1024):
         return "%d bytes" % b
-    b = b/1024
+    b = b / 1024
     if (b < 1024):
        return "%d KiB" % b
-    b = b/1024
+    b = b / 1024
     if (b < 1024):
         return "%d MiB" % b
-    b = b/1024
+    b = b / 1024
     return "%d GiB" % b
     
 def timeformat(s):
-    if (s<0):
+    if s < 0:
         return "00:00:00"
-    h = floor(s/(60*60))
-    s = s-h*60*60
-    m = floor(s/60)
-    s = s-m*60
+    h = floor(s / 3600)
+    s = s - h * 3600
+    m = floor(s / 60)
+    s = s - m * 60
     return "%02d:%02d:%02d" % (h,m,s)
 
 # Progress bar display for urllib.urlretrieve function.  
@@ -344,22 +354,22 @@ def progressbar(count, blockSize, totalSize):
     else:
         percent = 0
         blocks = 0
-    sys.stdout.write("\r["+blocks*'='+(BAR_WIDTH-blocks)*' '+'] '+'%d%% ' % percent)
+    sys.stdout.write("\r[" + blocks * '=' + (BAR_WIDTH - blocks) * ' ' + '] ' + '%d%% ' % percent)
     sys.stdout.write('of %s ' % dataformat(totalSize))
     bps_speed = count * blockSize / timer.gettime()
     sys.stdout.write('at %s/s ' % dataformat(bps_speed))
     if bps_speed > 0:
-        eta = (totalSize - count*blockSize) / (bps_speed)
+        eta = (totalSize - count * blockSize) / (bps_speed)
     else:
         eta = 0
     sys.stdout.write('ETA: %s' % timeformat(eta))
-    sys.stdout.write(4*' ')
+    sys.stdout.write(4 * ' ')
     sys.stdout.flush()
 
 # Return a suitable file name for configuration options.  
 def getconffile():
     # TODO: OS specific selection of configuration file name.  
-    return os.getenv("HOME")+"/.tvkaista-downloadrc"
+    return os.getenv("HOME") + "/.tvkaista-downloadrc"
 
 # Confirm that all required settings have been defined.  
 def valid_settings(s,critical):
