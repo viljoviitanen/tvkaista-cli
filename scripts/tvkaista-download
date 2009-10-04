@@ -22,7 +22,18 @@
 __version__ = "$Revision$"
 # $Source$
 
-import urllib, urllib2 , re, os, htmlentitydefs, sys, getopt, httplib2, shutil, time, datetime
+import urllib
+import urllib2
+import re
+import os
+import htmlentitydefs
+import sys
+import getopt
+import httplib2
+import shutil
+import time
+import datetime
+
 from string import split, replace, find
 from math import floor
 from xml.dom import minidom
@@ -38,8 +49,7 @@ class Timer:
         return time.time() - self.t
     def reset(self):
         self.t = time.time()
-        
-        
+
 class Program:
     """
     The Programm class encapsulates a downloadable item.
