@@ -66,8 +66,8 @@ class Program:
             urlbase = "@www.tvkaista.fi/netpvr/Download/"
         self.vurl = "http://"+settings['username']+":"+settings['password']+urlbase+pid+"."+filesuffix(settings['format'])
         self.surl = "http://"+settings['username']+":"+settings['password']+urlbase+pid+""+SUB_SUFFIX
-        self.vfile = settings['downloaddir'] + ptit + "_" + self.date + "_" + pid + "." + filesuffix(settings['format'])
-        self.sfile = settings['downloaddir'] + ptit + "_" + self.date + "_" + pid + "" + SUB_SUFFIX
+        self.vfile = settings['downloaddir'] + ptit.replace(" ","_") + "_" + self.date + "_" + pid + "." + filesuffix(settings['format'])
+        self.sfile = settings['downloaddir'] + ptit.replace(" ","_") + "_" + self.date + "_" + pid + "" + SUB_SUFFIX
 
     def download(self):
         """
@@ -103,9 +103,11 @@ class Program:
     def downloaded(self):
         return True if os.path.exists(self.vfile) else False
     
-    def label(self):
-        return self.date + " " +  self.time + " " + self.title + \
-        " (" + settings['format'] + ", " + dataformat(self.length) + ")"
+    def label(self,showid=False):
+        if showid:
+            return self.idn + " " + self.date + " " +  self.time + " " + self.title
+        else:
+            return self.date + " " +  self.time + " " + self.title
 
 def cursor_hide():
     """
@@ -124,16 +126,17 @@ def cursor_unhide():
 def usage():
     print "Usage: tvkaista-download [-hvfupsd]"
     print ""
-    print " Options:  -h --help  show this message"
-    print "           -v         print more information"
-    print "           --prompt   prompt before downloading"
-    print "           -s         show list of favourites"
-    print "           -u         username"
-    print "           -p         password"
-    print "           -f         video format (iTunes/flv/h264/ts/help)"
-    print "           -d         download directory"
-    print "           --alpha    use alpha.tvkaista.fi"
-    print "           --seasons  download seasons feed"
+    print " Options:  -h --help        show this message"
+    print "           -v               print more information"
+    print "           --prompt         prompt before downloading"
+    print "           -s               show list of favourites"
+    print "           -u               username"
+    print "           -p               password"
+    print "           -f               video format (iTunes/flv/h264/ts/help)"
+    print "           -d               download directory"
+    print "           --alpha          use alpha.tvkaista.fi"
+    print "           --seasons        download seasons feed"
+    print "           --search keyword search program index"
     print ""
 
 # List available video formats.  
@@ -256,26 +259,21 @@ def login():
 
 # Download the list of favorite recordings and build a list of download targets.  
 # Original code from tvkaistaforxbmc plugin
-def feedreader(channel):
+def feedreader(feedurl):
     targets = []
     headers['Cookie'] = login()
-    if (channel == 'list'):
-        favurl = 'http://www.tvkaista.fi/netpvr/Feed?channel=Playlist&format=%s&extension=itunes' % (settings['format'])
-    elif (channel == 'seasons'):
-        favurl = 'http://www.tvkaista.fi/netpvr/Feed?channel=seasonpass&format='+formatstring(settings['format'])+'&extension=itunes'
-    response, content = http.request(favurl, 'GET', headers=headers)
+    response, content = http.request(feedurl, 'GET', headers=headers)
     if (response['status'] == '401'):
         print "HTTP/401 (Unauthorized) Could not login to tvkaista.fi."
         sys.exit(1)
     elif (response['status'] == '404'):
         print "HTTP/404 (Not Found) Feed XML file was not found."
         sys.exit(1)
-
     dom = minidom.parseString(content)
     items = dom.getElementsByTagName('item')
     ret = []
     for i in items:
-        ptit = i.getElementsByTagName('title')[0].childNodes[0].nodeValue.replace(" ","_")
+        ptit = i.getElementsByTagName('title')[0].childNodes[0].nodeValue
         pgui= i.getElementsByTagName('guid')[0].childNodes[0].nodeValue
         pdt = time.mktime(time.strptime(i.getElementsByTagName('pubDate')[0].childNodes[0].nodeValue, "%a, %d %b %Y %H:%M:%S +0300"))
         pid = re.compile('http://www.tvkaista.fi/netpvr/Search[?]id=(\d+)').findall(pgui)[0]
@@ -289,20 +287,16 @@ def feedreader(channel):
     return ret
 
 # Parse a list of download targets from a RSS file into a list of downloadable objects
-def feedreader_alpha(channel):
-    targets = []
-    if (channel == 'list'):
-        favurl = 'http://alpha.tvkaista.fi/feed/playlist/'+formatstring(settings['format'])+'.rss'
-    elif (channel == 'seasons'):
-        favurl = 'http://alpha.tvkaista.fi/feed/seasonpasses/*/'+formatstring(settings['format'])+'.rss'
+def feedreader_alpha(feedurl):
+    targets = []      
     passman = urllib2.HTTPPasswordMgrWithDefaultRealm()
-    passman.add_password(None, favurl, settings['username'], settings['password'])
+    passman.add_password(None, feedurl, settings['username'], settings['password'])
     opener = urllib2.build_opener(urllib2.HTTPBasicAuthHandler(passman))
     urllib2.install_opener(opener)
     try:
-        content = urllib2.urlopen(favurl).read()
+        content = urllib2.urlopen(feedurl).read()
     except(urllib2.HTTPError):
-        print "HTTP 404 Error: " + favurl
+        print "HTTP 404 Error: " + feedurl
         exit(1)
     dom = minidom.parseString(content)
     items = dom.getElementsByTagName('item')
@@ -347,14 +341,14 @@ def timeformat(s):
 # Progress bar display for urllib.urlretrieve function.  
 def progressbar(count, blockSize, totalSize):
     if (totalSize > 0):
-        percent = int(count*blockSize*100/totalSize)
-        blocks = int(count*blockSize*BAR_WIDTH/totalSize)
+        percent = int(count * blockSize * 100 / totalSize)
+        blocks = int(count * blockSize * BAR_WIDTH / totalSize)
     else:
         percent = 0
         blocks = 0
     sys.stdout.write("\r["+blocks*'='+(BAR_WIDTH-blocks)*' '+'] '+'%d%% ' % percent)
     sys.stdout.write('of %s ' % dataformat(totalSize))
-    bps_speed = (count*blockSize)/(timer.gettime())
+    bps_speed = count * blockSize / timer.gettime()
     sys.stdout.write('at %s/s ' % dataformat(bps_speed))
     if bps_speed > 0:
         eta = (totalSize - count*blockSize) / (bps_speed)
@@ -375,13 +369,13 @@ def valid_settings(s,critical):
         try:
             if (s[k] == None):
                 if (critical):
-                    print k+" not specified. See \"tvkaista-download --help\""
+                    print k + " not specified. See \"tvkaista-download --help\""
                     sys.exit(1)
                 else:
                     return False
         except KeyError:
             if (critical):
-                print k+" not specified. See \"tvkaista-download --help\""
+                print k + " not specified. See \"tvkaista-download --help\""
                 sys.exit(1)
             else:
                 return False
@@ -398,6 +392,7 @@ def main(argv):
     global timer
     global alpha
     global seasondl
+    global search
     
     timer = Timer()
     exp_settings = {}
@@ -406,7 +401,7 @@ def main(argv):
     try:
         opts, args = getopt.getopt(argv, "hvpsf:u:p:d:", \
                        ["help","verbose","prompt","show","format=","username=", \
-                        "password=","downloaddir=","alpha","seasons"])
+                        "password=","downloaddir=","alpha","seasons","search="])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
@@ -428,6 +423,9 @@ def main(argv):
             exp_settings['format'] = arg
         if opt in ("-u", "--username"):
             exp_settings['username'] = arg
+        if (opt == "--search"):
+            search = True
+            search_terms = arg
         if opt in ("-p", "--password"):
             exp_settings['password'] = arg
         if opt in ("-d", "--downloaddir"):
@@ -459,12 +457,27 @@ def main(argv):
     # and we're ready to download.
     #targets = feedreader('favourites')
     
-    channel = 'seasons' if seasondl else 'list'
-    targets = feedreader_alpha(channel) if alpha else feedreader(channel)
+    if (search):
+        if (alpha):
+            feedurl = "http://alpha.tvkaista.fi/feed/search/title/"+urllib.urlencode({'':search_terms})[1:]+"/"+formatstring(settings['format'])+".rss"
+        else:
+            feedurl = "http://www.tvkaista.fi/netpvr/Feed?channel=search&" + urllib.urlencode({'search':search_terms}) + "&format="+formatstring(settings['format'])+"&extension=rss"
+    elif (seasondl):
+        if (alpha):
+            feedurl = 'http://alpha.tvkaista.fi/feed/seasonpasses/*/'+formatstring(settings['format'])+'.rss'
+        else:
+            feedurl = 'http://www.tvkaista.fi/netpvr/Feed?channel=seasonpass&format='+formatstring(settings['format'])+'&extension=itunes'
+    else:
+        if (alpha):
+            feedurl = 'http://alpha.tvkaista.fi/feed/playlist/'+formatstring(settings['format'])+'.rss'
+        else:
+            feedurl = 'http://www.tvkaista.fi/netpvr/Feed?channel=Playlist&format=%s&extension=itunes' % (settings['format'])
+    
+    #channel = 'seasons' if seasondl else 'list'
+    targets = feedreader_alpha(feedurl) if alpha else feedreader(feedurl)
 
     # Show list "-s"
     if (show):
-        sys.exit()
         for t in targets:
             box = '[*] ' if t.downloaded() else '[ ] '
             print box + t.label()
@@ -490,6 +503,7 @@ prompt = False
 show = False
 alpha = False
 seasondl = False
+search = False
 
 
 if __name__ == "__main__":
