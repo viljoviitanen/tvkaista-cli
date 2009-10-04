@@ -83,14 +83,14 @@ class Program:
         """
         print self.label()
         if (os.path.exists(self.vfile)):
-            sys.stdout.write("\r["+BAR_WIDTH*'='+'] (done)\n')
+            sys.stdout.write("\r[" + BAR_WIDTH * '=' + '] (done)\n')
         else:
             try:
                 cursor_hide()
-                urllib.urlretrieve(self.vurl, self.vfile+TMP_SUFFIX, \
+                urllib.urlretrieve(self.vurl, self.vfile + TMP_SUFFIX, \
                 reporthook=progressbar)
                 cursor_unhide()
-                if (os.path.exists(self.vfile+TMP_SUFFIX)):
+                if (os.path.exists(self.vfile + TMP_SUFFIX)):
                     shutil.move(self.vfile+TMP_SUFFIX, self.vfile)
             except:
                 cursor_unhide()
@@ -98,9 +98,9 @@ class Program:
         # Download subtitle file. Remove if empty.  
         if (not os.path.exists(self.sfile)):
             try:
-                urllib.urlretrieve(self.surl, self.sfile+TMP_SUFFIX)
-                if (os.path.exists(self.sfile+TMP_SUFFIX)):
-                    shutil.move(self.sfile+TMP_SUFFIX, self.sfile)
+                urllib.urlretrieve(self.surl, self.sfile + TMP_SUFFIX)
+                if (os.path.exists(self.sfile + TMP_SUFFIX)):
+                    shutil.move(self.sfile + TMP_SUFFIX, self.sfile)
             except:
                 print "\nDownload interrupted"
             if (os.stat(self.sfile).st_size == 0):
@@ -129,17 +129,17 @@ def cursor_unhide():
 def usage():
     print "Usage: tvkaista-download [-hvfupsd]"
     print ""
-    print " Options:  -h --help        show this message"
-    print "           -v               print more information"
-    print "           --prompt         prompt before downloading"
-    print "           -s               show list of favourites"
-    print "           -u               username"
-    print "           -p               password"
-    print "           -f               video format (iTunes/flv/h264/ts/help)"
-    print "           -d               download directory"
-    print "           --alpha          use alpha.tvkaista.fi"
-    print "           --seasons        download seasons feed"
-    print "           --search keyword search program index"
+    print " Options:  -h --help          show this message"
+    print "           -v                 print more information"
+    print "           --prompt           prompt before downloading"
+    print "           -s                 show list of favourites"
+    print "           -u                 username"
+    print "           -p                 password"
+    print "           -f                 video format (iTunes/flv/h264/ts/help)"
+    print "           -d                 download directory"
+    print "           --alpha            use alpha.tvkaista.fi"
+    print "           --seasons          download seasons feed"
+    print "           --search keyword   search program index"
     print ""
 
 # List available video formats.  
@@ -461,33 +461,35 @@ def main(argv):
     #for k in att:
     #    print k+": "+settings[k]
     
-    if sum([mode_search,mode_season]) > 1:
+    #if sum([mode_search,mode_season]) > 1:
+    if mode_search and mode_season:
         print "Options --search and --seasons cannot be used together."
         sys.exit(0)
         
-    if sum([prompt,show]) > 1:
+    if prompt and show:
         print "Options --prompt and --show cannot be used together."
         sys.exit(0)
     
     if (mode_search):
         if (alpha):
             feedurl = "http://alpha.tvkaista.fi/feed/search/title/" + \
-            urllib.urlencode({'':search_terms})[1:]+"/"+formatstring(settings['format'])+".rss"
+            urllib.urlencode({'':search_terms})[1:] + "/" + \
+            formatstring(settings['format'])+".rss"
         else:
             feedurl = "http://www.tvkaista.fi/netpvr/Feed?channel=search&" + \
             urllib.urlencode({'search':search_terms}) + \
-            "&format="+formatstring(settings['format'])+"&extension=rss"
+            "&format=" + formatstring(settings['format']) + "&extension=rss"
     elif (mode_season):
         if (alpha):
             feedurl = 'http://alpha.tvkaista.fi/feed/seasonpasses/*/' + \
-            formatstring(settings['format'])+'.rss'
+            formatstring(settings['format']) + '.rss'
         else:
             feedurl = 'http://www.tvkaista.fi/netpvr/Feed?channel=seasonpass&format=' + \
-            formatstring(settings['format'])+'&extension=itunes'
+            formatstring(settings['format']) + '&extension=itunes'
     else:
         if (alpha):
             feedurl = 'http://alpha.tvkaista.fi/feed/playlist/' + \
-            formatstring(settings['format'])+'.rss'
+            formatstring(settings['format']) + '.rss'
         else:
             feedurl = "http://www.tvkaista.fi/netpvr/Feed?channel=Playlist&format=" + \
             settings['format'] + "&extension=itunes"
