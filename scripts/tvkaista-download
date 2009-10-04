@@ -80,7 +80,6 @@ class Program:
         else:
             try:
                 cursor_hide()
-                #print "Trying to download from "+ self.vurl
                 urllib.urlretrieve(self.vurl, self.vfile+TMP_SUFFIX, reporthook=progressbar)
                 cursor_unhide()
                 if (os.path.exists(self.vfile+TMP_SUFFIX)):
@@ -91,7 +90,6 @@ class Program:
         # Download subtitle file. Remove if empty.  
         if (not os.path.exists(self.sfile)):
             try:
-                #print "Trying to download from "+ self.surl
                 urllib.urlretrieve(self.surl, self.sfile+TMP_SUFFIX)
                 if (os.path.exists(self.sfile+TMP_SUFFIX)):
                     shutil.move(self.sfile+TMP_SUFFIX, self.sfile)
@@ -104,10 +102,7 @@ class Program:
         return True if os.path.exists(self.vfile) else False
     
     def label(self,showid=False):
-        if showid:
-            return self.idn + " " + self.date + " " +  self.time + " " + self.title
-        else:
-            return self.date + " " +  self.time + " " + self.title
+        return self.date + " " +  self.time + " " + self.title
 
 def cursor_hide():
     """
@@ -303,7 +298,10 @@ def feedreader_alpha(feedurl):
     ret = []
     for i in items:
         ptit = i.getElementsByTagName('title')[0].childNodes[0].nodeValue.replace(" ","_")
-        plen = i.getElementsByTagName('enclosure')[0].attributes['length'].value
+        try:
+            plen = i.getElementsByTagName('enclosure')[0].attributes['length'].value
+        except:
+            plen = 0
         plin= i.getElementsByTagName('link')[0].childNodes[0].nodeValue
         pdt = time.mktime(time.strptime(i.getElementsByTagName('pubDate')[0].childNodes[0].nodeValue, "%a, %d %b %Y %H:%M:%S +0000"))
         pid = re.compile('http://alpha.tvkaista.fi/search/[?]id=(\d+)').findall(plin)[0]
@@ -425,7 +423,7 @@ def main(argv):
             exp_settings['username'] = arg
         if (opt == "--search"):
             search = True
-            search_terms = arg
+            search_terms = arg       
         if opt in ("-p", "--password"):
             exp_settings['password'] = arg
         if opt in ("-d", "--downloaddir"):
@@ -459,19 +457,26 @@ def main(argv):
     
     if (search):
         if (alpha):
-            feedurl = "http://alpha.tvkaista.fi/feed/search/title/"+urllib.urlencode({'':search_terms})[1:]+"/"+formatstring(settings['format'])+".rss"
+            feedurl = "http://alpha.tvkaista.fi/feed/search/title/" + \
+            urllib.urlencode({'':search_terms})[1:]+"/"+formatstring(settings['format'])+".rss"
         else:
-            feedurl = "http://www.tvkaista.fi/netpvr/Feed?channel=search&" + urllib.urlencode({'search':search_terms}) + "&format="+formatstring(settings['format'])+"&extension=rss"
+            feedurl = "http://www.tvkaista.fi/netpvr/Feed?channel=search&" + \
+            urllib.urlencode({'search':search_terms}) + \
+            "&format="+formatstring(settings['format'])+"&extension=rss"
     elif (seasondl):
         if (alpha):
-            feedurl = 'http://alpha.tvkaista.fi/feed/seasonpasses/*/'+formatstring(settings['format'])+'.rss'
+            feedurl = 'http://alpha.tvkaista.fi/feed/seasonpasses/*/' + \
+            formatstring(settings['format'])+'.rss'
         else:
-            feedurl = 'http://www.tvkaista.fi/netpvr/Feed?channel=seasonpass&format='+formatstring(settings['format'])+'&extension=itunes'
+            feedurl = 'http://www.tvkaista.fi/netpvr/Feed?channel=seasonpass&format=' + \
+            formatstring(settings['format'])+'&extension=itunes'
     else:
         if (alpha):
-            feedurl = 'http://alpha.tvkaista.fi/feed/playlist/'+formatstring(settings['format'])+'.rss'
+            feedurl = 'http://alpha.tvkaista.fi/feed/playlist/' + \
+            formatstring(settings['format'])+'.rss'
         else:
-            feedurl = 'http://www.tvkaista.fi/netpvr/Feed?channel=Playlist&format=%s&extension=itunes' % (settings['format'])
+            feedurl = "http://www.tvkaista.fi/netpvr/Feed?channel=Playlist&format=" + \
+            settings['format'] + "&extension=itunes"
     
     #channel = 'seasons' if seasondl else 'list'
     targets = feedreader_alpha(feedurl) if alpha else feedreader(feedurl)
@@ -504,7 +509,6 @@ show = False
 alpha = False
 seasondl = False
 search = False
-
 
 if __name__ == "__main__":
     main(sys.argv[1:])
