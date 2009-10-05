@@ -91,6 +91,7 @@ class Program:
                 cursor_unhide()
                 if (os.path.exists(self.vfile + TMP_SUFFIX)):
                     shutil.move(self.vfile+TMP_SUFFIX, self.vfile)
+		print "\n"
             except:
                 cursor_unhide()
                 print "\nDownload interrupted"
@@ -329,12 +330,12 @@ def dataformat(b):
         return "%d bytes" % b
     b = b / 1024
     if (b < 1024):
-       return "%d KiB" % b
+       return "%.2f KiB" % b
     b = b / 1024
     if (b < 1024):
-        return "%d MiB" % b
+        return "%.2f MiB" % b
     b = b / 1024
-    return "%d GiB" % b
+    return "%.2f GiB" % b
     
 def timeformat(s):
     if s < 0:
