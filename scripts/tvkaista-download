@@ -251,18 +251,19 @@ def unescape(text):
         return text
     return re.sub("&#?\w+;", fixup, text)
 
-# Download the list of favorite recordings and build a list of download targets.  
-# Original code from tvkaistaforxbmc plugin
-def feedreader(feedurl):
+# Download the list of favorite recordings and build a list of download 
+# targets. Original code from tvkaistaforxbmc plugin
+def feedreader(feed):
     targets = []      
     passman = urllib2.HTTPPasswordMgrWithDefaultRealm()
-    passman.add_password(None, feedurl, settings['username'], settings['password'])
+    passman.add_password(None, feed, settings['username'], \
+			 settings['password'])
     opener = urllib2.build_opener(urllib2.HTTPBasicAuthHandler(passman))
     urllib2.install_opener(opener)
     try:
-        content = urllib2.urlopen(feedurl).read()
+        content = urllib2.urlopen(feed).read()
     except(urllib2.HTTPError):
-        print "HTTP 404 Error: " + feedurl
+        print "HTTP 404 Error: " + feed
         exit(1)
     dom = minidom.parseString(content)
     items = dom.getElementsByTagName('item')
@@ -270,8 +271,10 @@ def feedreader(feedurl):
     for i in items:
         ptit = i.getElementsByTagName('title')[0].childNodes[0].nodeValue
         pgui= i.getElementsByTagName('guid')[0].childNodes[0].nodeValue
-        pdt = time.mktime(time.strptime(i.getElementsByTagName('pubDate')[0].childNodes[0].nodeValue, "%a, %d %b %Y %H:%M:%S +0300"))
-        pid = re.compile('http://www.tvkaista.fi/netpvr/Search[?]id=(\d+)').findall(pgui)[0]
+        pdt = time.mktime(time.strptime(i.getElementsByTagName('pubDate')[0]\
+	      .childNodes[0].nodeValue, "%a, %d %b %Y %H:%M:%S +0300"))
+        pid = re.compile('http://www.tvkaista.fi/netpvr/Search[?]id=(\d+)')\
+	      .findall(pgui)[0]
         program = Program(pid,ptit,0,pdt)
         if (prompt and not program.downloaded()):
             print program.label()
@@ -281,30 +284,36 @@ def feedreader(feedurl):
     dom.unlink()
     return ret
 
-# Parse a list of download targets from a RSS file into a list of downloadable objects
-def feedreader_alpha(feedurl):
+# Parse a list of download targets from a RSS file into a list of 
+# downloadable objects
+def feedreader_alpha(feed):
     targets = []      
     passman = urllib2.HTTPPasswordMgrWithDefaultRealm()
-    passman.add_password(None, feedurl, settings['username'], settings['password'])
+    passman.add_password(None, feed, settings['username'], \
+			 settings['password'])
     opener = urllib2.build_opener(urllib2.HTTPBasicAuthHandler(passman))
     urllib2.install_opener(opener)
     try:
-        content = urllib2.urlopen(feedurl).read()
+        content = urllib2.urlopen(feed).read()
     except(urllib2.HTTPError):
-        print "HTTP 404 Error: " + feedurl
+        print "HTTP 404 Error: " + feed
         exit(1)
     dom = minidom.parseString(content)
     items = dom.getElementsByTagName('item')
     ret = []
     for i in items:
-        ptit = i.getElementsByTagName('title')[0].childNodes[0].nodeValue.replace(" ","_")
+        ptit = i.getElementsByTagName('title')[0].childNodes[0]\
+	       .nodeValue.replace(" ","_")
         try:
-            plen = i.getElementsByTagName('enclosure')[0].attributes['length'].value
+            plen = i.getElementsByTagName('enclosure')[0].\
+		   attributes['length'].value
         except:
             plen = 0
         plin= i.getElementsByTagName('link')[0].childNodes[0].nodeValue
-        pdt = time.mktime(time.strptime(i.getElementsByTagName('pubDate')[0].childNodes[0].nodeValue, "%a, %d %b %Y %H:%M:%S +0000"))
-        pid = re.compile('http://alpha.tvkaista.fi/search/[?]id=(\d+)').findall(plin)[0]
+        pdt = time.mktime(time.strptime(i.getElementsByTagName('pubDate')[0]\
+	      .childNodes[0].nodeValue, "%a, %d %b %Y %H:%M:%S +0000"))
+        pid = re.compile('http://alpha.tvkaista.fi/search/[?]id=(\d+)')\
+	      .findall(plin)[0]
         program = Program(pid,ptit,plen,pdt)
         if (prompt and not program.downloaded()):
             print program.label()
@@ -344,7 +353,8 @@ def progressbar(count, blockSize, totalSize):
     else:
         percent = 0
         blocks = 0
-    sys.stdout.write("\r[" + blocks * '=' + (BAR_WIDTH - blocks) * ' ' + '] ' + '%d%% ' % percent)
+    sys.stdout.write("\r[" + blocks * "=" + (BAR_WIDTH - blocks) * ' ' + \
+		     "] " + "%d%% " % percent)
     sys.stdout.write('of %s ' % dataformat(totalSize))
     bps_speed = count * blockSize / timer.gettime()
     sys.stdout.write('at %s/s ' % dataformat(bps_speed))
@@ -398,7 +408,7 @@ def main(argv):
     # Processing of command line options using getopt.  
     try:
         opts, args = getopt.getopt(argv, "hvpsf:u:p:d:", \
-                       ["help","verbose","prompt","show","format=","username=", \
+                       ["help","verbose","prompt","show","format=","username=",\
                         "password=","downloaddir=","alpha","seasons","search="])
     except getopt.GetoptError:
         usage()
@@ -462,29 +472,29 @@ def main(argv):
     
     if (mode_search):
         if (alpha):
-            feedurl = "http://alpha.tvkaista.fi/feed/search/title/" + \
+            feed = "http://alpha.tvkaista.fi/feed/search/title/" + \
             urllib.urlencode({'':search_terms})[1:] + "/" + \
             formatstring(settings['format'])+".rss"
         else:
-            feedurl = "http://www.tvkaista.fi/netpvr/Feed?channel=search&" + \
+            feed = "http://www.tvkaista.fi/netpvr/Feed?channel=search&" + \
             urllib.urlencode({'search':search_terms}) + \
             "&format=" + formatstring(settings['format']) + "&extension=rss"
     elif (mode_season):
         if (alpha):
-            feedurl = 'http://alpha.tvkaista.fi/feed/seasonpasses/*/' + \
+            feed = 'http://alpha.tvkaista.fi/feed/seasonpasses/*/' + \
             formatstring(settings['format']) + '.rss'
         else:
-            feedurl = 'http://www.tvkaista.fi/netpvr/Feed?channel=seasonpass&format=' + \
+            feed = 'http://www.tvkaista.fi/netpvr/Feed?channel=seasonpass&format=' + \
             formatstring(settings['format']) + '&extension=itunes'
     else:
         if (alpha):
-            feedurl = 'http://alpha.tvkaista.fi/feed/playlist/' + \
+            feed = 'http://alpha.tvkaista.fi/feed/playlist/' + \
             formatstring(settings['format']) + '.rss'
         else:
-            feedurl = "http://www.tvkaista.fi/netpvr/Feed?channel=Playlist&format=" + \
+            feed = "http://www.tvkaista.fi/netpvr/Feed?channel=Playlist&format=" + \
             settings['format'] + "&extension=itunes"
     
-    targets = feedreader_alpha(feedurl) if alpha else feedreader(feedurl)
+    targets = feedreader_alpha(feed) if alpha else feedreader(feed)
 
     # Show list "-s"
     if (show):
