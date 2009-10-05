@@ -29,7 +29,6 @@ import os
 import htmlentitydefs
 import sys
 import getopt
-import httplib2
 import shutil
 import time
 import datetime
@@ -252,28 +251,19 @@ def unescape(text):
         return text
     return re.sub("&#?\w+;", fixup, text)
 
-# Login to tvkaista.fi (required for each action)
-def login():
-    loginurl = 'http://www.tvkaista.fi/netpvr/Login'
-    body = {'action': 'login', 'username': settings['username'], \
-            'password': settings['password'], 'rememberme':'on'}
-    headers = {'Content-type': 'application/x-www-form-urlencoded'}
-    response, content = http.request(loginurl, 'POST', \
-                        headers=headers, body=urllib.urlencode(body))
-    return response['set-cookie']
-
 # Download the list of favorite recordings and build a list of download targets.  
 # Original code from tvkaistaforxbmc plugin
 def feedreader(feedurl):
-    targets = []
-    headers['Cookie'] = login()
-    response, content = http.request(feedurl, 'GET', headers=headers)
-    if (response['status'] == '401'):
-        print "HTTP/401 (Unauthorized) Could not login to tvkaista.fi."
-        sys.exit(1)
-    elif (response['status'] == '404'):
-        print "HTTP/404 (Not Found) Feed XML file was not found."
-        sys.exit(1)
+    targets = []      
+    passman = urllib2.HTTPPasswordMgrWithDefaultRealm()
+    passman.add_password(None, feedurl, settings['username'], settings['password'])
+    opener = urllib2.build_opener(urllib2.HTTPBasicAuthHandler(passman))
+    urllib2.install_opener(opener)
+    try:
+        content = urllib2.urlopen(feedurl).read()
+    except(urllib2.HTTPError):
+        print "HTTP 404 Error: " + feedurl
+        exit(1)
     dom = minidom.parseString(content)
     items = dom.getElementsByTagName('item')
     ret = []
@@ -510,9 +500,6 @@ TMP_SUFFIX = '.part'
 SUB_SUFFIX = '.srt'
 # Progress bar width
 BAR_WIDTH = 70
-# HTTP headers
-headers = {'Content-type': 'application/x-www-form-urlencoded'}
-http = httplib2.Http()
 settings = {}
 # Required configuration options
 att = ['username','password','format','downloaddir']
