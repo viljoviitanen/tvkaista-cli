@@ -40,7 +40,7 @@ from subprocess import call
 
 class Timer:
     """
-    The Timer class is used as a stopwatch to estimate the 
+    The Timer class is used as a stopwatch to estimate the
     download speed and remaining time.
     """
     def __init__(self):
@@ -78,7 +78,7 @@ class Program:
 
     def download(self):
         """
-        The download method executes the actual download process of 
+        The download method executes the actual download process of
         a video/subtitle file.
         """
         print self.label()
@@ -96,7 +96,7 @@ class Program:
             except:
                 cursor_unhide()
                 print "\nDownload interrupted"
-        # Download subtitle file. Remove if empty.  
+        # Download subtitle file. Remove if empty.
         if (not os.path.exists(self.sfile)):
             try:
                 urllib.urlretrieve(self.surl, self.sfile + TMP_SUFFIX)
@@ -106,13 +106,13 @@ class Program:
                 print "\nDownload interrupted"
             if (os.stat(self.sfile).st_size == 0):
                 os.remove(self.sfile)
-    
+
     def downloaded(self):
         return True if os.path.exists(self.vfile) else False
-    
+
     def label(self,showid=False):
         return self.date + " " +  self.time + " " + self.title
-        
+
     def geturl(self):
         return self.vurl
 
@@ -121,17 +121,17 @@ def cursor_hide():
     Hide the terminal cursor to reduce UI clutter.
     """
     sys.stdout.write('\033[?25l')
-    
+
 def cursor_unhide():
     """
     Make the cursor visible again after being
     hidden during the download phase.
     """
     sys.stdout.write('\033[?25h')
-    
+
 # Usage message
 def usage():
-    print "Usage: tvkaista-download [-hvfupsd]"
+    print "Usage: tvkaista[-hvfupsd] show/get/stream list/seasons/search"
     print ""
     print " Options:  -h --help          show this message"
     print "           -v                 print more information"
@@ -147,7 +147,7 @@ def usage():
     print "           --watch            watch program"
     print ""
 
-# List available video formats.  
+# List available video formats.
 def show_format_info():
     print "Available video formats:"
     print " iTunes  300 kbps MPEG-4"
@@ -172,7 +172,7 @@ def prompt_settings():
         prompt_settings()
     return settings
 
-# Write configuration file.  
+# Write configuration file.
 # Format: option = value
 def write_rcfile(settings):
     omask = os.umask(077)
@@ -184,7 +184,7 @@ def write_rcfile(settings):
     f.close()
     os.umask(omask)
 
-# Read configuration file.  
+# Read configuration file.
 # Format: option = value
 def read_rcfile(filename):
     config = {}
@@ -201,7 +201,7 @@ def read_rcfile(filename):
     f.close()
     return config
 
-# Transform month name abbreviations into numbers 1-12.  
+# Transform month name abbreviations into numbers 1-12.
 def rfc822month(mon):
     return {
       'Jan': '01',
@@ -257,10 +257,10 @@ def unescape(text):
         return text
     return re.sub("&#?\w+;", fixup, text)
 
-# Download the list of favorite recordings and build a list of download 
+# Download the list of favorite recordings and build a list of download
 # targets. Original code from tvkaistaforxbmc plugin
 def feedreader(feed):
-    targets = []      
+    targets = []
     passman = urllib2.HTTPPasswordMgrWithDefaultRealm()
     passman.add_password(None, feed, settings['username'], \
 			 settings['password'])
@@ -290,10 +290,10 @@ def feedreader(feed):
     dom.unlink()
     return ret
 
-# Parse a list of download targets from a RSS file into a list of 
+# Parse a list of download targets from a RSS file into a list of
 # downloadable objects
 def feedreader_alpha(feed):
-    targets = []      
+    targets = []
     passman = urllib2.HTTPPasswordMgrWithDefaultRealm()
     passman.add_password(None, feed, settings['username'], \
 			 settings['password'])
@@ -329,7 +329,7 @@ def feedreader_alpha(feed):
     dom.unlink()
     return ret
 
-# Format raw byte count into reasonable units.  
+# Format raw byte count into reasonable units.
 def dataformat(b):
     if (b < 1024):
         return "%d bytes" % b
@@ -341,7 +341,7 @@ def dataformat(b):
         return "%.2f MiB" % b
     b = b / 1024
     return "%.2f GiB" % b
-    
+
 def timeformat(s):
     if s < 0:
         return "00:00:00"
@@ -351,7 +351,7 @@ def timeformat(s):
     s = s - m * 60
     return "%02d:%02d:%02d" % (h,m,s)
 
-# Progress bar display for urllib.urlretrieve function.  
+# Progress bar display for urllib.urlretrieve function.
 def progressbar(count, blockSize, totalSize):
     if (totalSize > 0):
         percent = int(count * blockSize * 100 / totalSize)
@@ -360,7 +360,7 @@ def progressbar(count, blockSize, totalSize):
         percent = 0
         blocks = 0
     sys.stdout.write("\r[" + blocks * "=" + (BAR_WIDTH - blocks) * ' ' + \
-		     "] " + "%d%% " % percent)
+		     "] " + "%02d%% " % percent)
     sys.stdout.write('of %s ' % dataformat(totalSize))
     bps_speed = count * blockSize / timer.gettime()
     sys.stdout.write('at %s/s ' % dataformat(bps_speed))
@@ -372,12 +372,12 @@ def progressbar(count, blockSize, totalSize):
     sys.stdout.write(4 * ' ')
     sys.stdout.flush()
 
-# Return a suitable file name for configuration options.  
+# Return a suitable file name for configuration options.
 def getconffile():
-    # TODO: OS specific selection of configuration file name.  
+    # TODO: OS specific selection of configuration file name.
     return os.getenv("HOME") + "/.tvkaista-downloadrc"
 
-# Confirm that all required settings have been defined.  
+# Confirm that all required settings have been defined.
 def valid_settings(s,critical):
     for k in att:
         try:
@@ -405,51 +405,71 @@ def main(argv):
     global settings
     global timer
     global alpha
-    global mode_season
-    global mode_search
-    global watch
-    
+    global mode_show
+    global mode_get
+    global mode_stream
+    global target_list
+    global target_seasons
+    global target_search
+
     timer = Timer()
     exp_settings = {}
 
-    # Processing of command line options using getopt.  
+    # Processing of command line options using getopt.
     try:
-        opts, args = getopt.getopt(argv, "hvpsf:u:p:d:", \
-                       ["help","verbose","prompt","show","format=","username=",\
-                        "password=","downloaddir=","alpha","seasons","search=",\
-                        "watch"])
+        #print argv
+        opts, args = getopt.getopt(argv, "hvpf:u:p:d:",["help","verbose","prompt","format=","username=","password=","downloaddir=","alpha"])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
     for opt, arg in opts:
         if opt in ("-h", "--help"):
-            usage()                     
+            usage()
             sys.exit()
+            mode_stream = True
+        if opt in ("-f", "--format"):
+            exp_settings['format'] = arg
+        if opt in ("-u", "--username"):
+            exp_settings['username'] = arg
+        if opt in ("-p", "--password"):
+            exp_settings['password'] = arg
+        if opt in ("-d", "--downloaddir"):
+            exp_settings['downloaddir'] = arg
         if opt in ("-v", "--verbose"):
             verbose = True
         if (opt == "--prompt"):
             prompt = True
         if (opt == "--alpha"):
             alpha = True
-        if (opt == "--seasons"):
-            mode_season = True
-        if opt in ("-s", "--show"):
-            show = True
-        if opt in ("-f", "--format"):
-            exp_settings['format'] = arg
-        if opt in ("-u", "--username"):
-            exp_settings['username'] = arg
-        if (opt == "--search"):
-            mode_search = True
-            search_terms = arg 
-        if (opt == "--watch"):
-            watch = True      
-        if opt in ("-p", "--password"):
-            exp_settings['password'] = arg
-        if opt in ("-d", "--downloaddir"):
-            exp_settings['downloaddir'] = arg
-    
-    # First see whether a configuration file is available.  
+
+    for i in xrange(len(args)):
+        # Modes
+        arg = args[i]
+        try:
+            narg = args[i+1]
+        except (IndexError):
+            narg = "tyhja"
+        if (arg == "show"):
+            mode_show = True
+        if (arg == "get"):
+            mode_get = True
+        if (arg == "stream"):
+            mode_stream = True
+        # Targets
+        if (arg == "list"):
+            target_list = True
+        if (arg == "seasons"):
+            target_seasons = True
+        if (arg == "search"):
+            target_search = True
+            search_terms = narg
+
+    #if (mode_get == mode_stream == False):
+    #    mode_show = True
+    #if (target_seasons == target_search == False):
+    #    target_list = True
+
+    # First see whether a configuration file is available.
     conffile = getconffile()
 
     if os.path.exists(conffile):
@@ -460,27 +480,31 @@ def main(argv):
         if (not valid_settings(exp_settings, False)):
             settings = prompt_settings()
             write_rcfile(settings)
-        
-    # Override configuration file if necessary.  
+
+    # Override configuration file if necessary.
     settings.update(exp_settings)
 
-    # Make sure that all required settings have been defined.  
+    # Make sure that all required settings have been defined.
     valid_settings(settings, True)
 
     # Debug: print all settings
     #for k in att:
     #    print k+": "+settings[k]
-    
-    if mode_search and mode_season:
-        print "Options --search and --seasons cannot be used together."
+
+    if sum([mode_show, mode_get, mode_stream]) == 0:
+        mode_show = True
+    if sum([mode_show, mode_get, mode_stream]) > 1:
+        print "Only one of show/get/stream is allowed."
         sys.exit(0)
-        
-    if prompt and show:
-        print "Options --prompt and --show cannot be used together."
+
+    if sum([target_list, target_seasons, target_search]) == 0:
+        target_list = True
+    if sum([target_list, target_seasons, target_search]) > 1:
+        print "Only one of show/get/stream is allowed."
         sys.exit(0)
-    
-    if (mode_search):
-        if (alpha):
+
+    if target_search:
+        if alpha:
             feed = "http://alpha.tvkaista.fi/feed/search/title/" + \
             urllib.urlencode({'':search_terms})[1:] + "/" + \
             formatstring(settings['format'])+".rss"
@@ -488,34 +512,33 @@ def main(argv):
             feed = "http://www.tvkaista.fi/netpvr/Feed?channel=search&" + \
             urllib.urlencode({'search':search_terms}) + \
             "&format=" + formatstring(settings['format']) + "&extension=rss"
-    elif (mode_season):
-        if (alpha):
+    elif target_seasons:
+        if alpha:
             feed = 'http://alpha.tvkaista.fi/feed/seasonpasses/*/' + \
             formatstring(settings['format']) + '.rss'
         else:
             feed = 'http://www.tvkaista.fi/netpvr/Feed?channel=seasonpass&format=' + \
             formatstring(settings['format']) + '&extension=itunes'
     else:
-        if (alpha):
+        if alpha:
             feed = 'http://alpha.tvkaista.fi/feed/playlist/' + \
             formatstring(settings['format']) + '.rss'
         else:
             feed = "http://www.tvkaista.fi/netpvr/Feed?channel=Playlist&format=" + \
             settings['format'] + "&extension=itunes"
-    
+
     targets = feedreader_alpha(feed) if alpha else feedreader(feed)
 
-    # Stream program instead of download
-    if watch and not show:
+    # Stream
+    if mode_stream:
         call([VIDEOPLAYER, targets[-1].geturl()])
-        sys.exit(0)
-
-    # Show list "-s"
-    if (show):
+    # Show (default)
+    elif mode_show:
         for t in targets:
             box = '[*] ' if t.downloaded() else '[ ] '
             print box + t.label()
-    else:
+    # Get
+    elif mode_get:
         [t.download() for t in targets]
     sys.exit(0)
 
@@ -523,7 +546,7 @@ def main(argv):
 TMP_SUFFIX = '.part'
 SUB_SUFFIX = '.srt'
 # Progress bar width
-BAR_WIDTH = 70
+BAR_WIDTH = 30
 VIDEOPLAYER = 'mplayer'
 settings = {}
 # Required configuration options
@@ -534,10 +557,14 @@ verbose = False
 prompt = False
 show = False
 alpha = False
-mode_season = False
-mode_search = False
-watch = False
+
+target_list = False
+target_seasons = False
+target_search = False
+
+mode_show = False
+mode_get = False
+mode_stream = False
 
 if __name__ == "__main__":
     main(sys.argv[1:])
-
