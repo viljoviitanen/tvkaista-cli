@@ -32,6 +32,7 @@ import getopt
 import shutil
 import time
 import datetime
+import httplib2
 
 from string import split, replace, find
 from math import floor
@@ -112,6 +113,9 @@ class Program:
 
     def label(self,showid=False):
         return self.date + " " +  self.time + " " + self.title
+        
+    def longlabel(self,showid=False):
+        return self.idn + " " + self.date + " " +  self.time + " " + self.title
 
     def geturl(self):
         return self.vurl
@@ -329,6 +333,39 @@ def feedreader_alpha(feed):
     dom.unlink()
     return ret
 
+# Login to tvkaista.fi 
+# Required for editing playlist
+def login():
+    loginurl = 'http://www.tvkaista.fi/netpvr/Login'
+    body = {'action': 'login', 'username': settings['username'], 'password': settings['password'], 'rememberme':'on'}
+    global headers
+    headers = {'Content-type': 'application/x-www-form-urlencoded'}
+    response, content = http.request(loginurl, 'POST', headers=headers, body=urllib.urlencode(body))
+    return response['set-cookie']
+ 
+#def login_alpha():
+#    loginurl = 'http://alpha.tvkaista.fi/login/'
+#    body = {'action': 'login', 'username': settings['username'], 'password': settings['password'], 'rememberme':'on'}
+#    global headers
+#    headers = {'Content-type': 'application/x-www-form-urlencoded'}
+#    response, content = http.request(loginurl, 'POST', headers=headers, body=urllib.urlencode(body))
+#    print "LOGIN RESPONSE", response
+#    print "LOGIN CONTENT", content
+#    return response['set-cookie']
+
+# Add/delete items in the playlist.
+def editlist(action,id):
+    headers['Cookie'] = login()
+    if action == 'add':
+        url = "http://www.tvkaista.fi/netpvr/Playlist?action=add&id=%s" % (id)
+    elif action == 'del':
+        url = "http://www.tvkaista.fi/netpvr/Playlist?action=remove&id=%s" % (id)
+    #print url
+    response, content = http.request(url, 'GET', headers=headers)
+
+# Add/delete items in the playlist for alpha site.
+#def editlist(action,id):
+
 # Format raw byte count into reasonable units.
 def dataformat(b):
     if (b < 1024):
@@ -408,6 +445,8 @@ def main(argv):
     global mode_show
     global mode_get
     global mode_stream
+    global mode_add
+    global mode_del
     global target_list
     global target_seasons
     global target_search
@@ -455,6 +494,12 @@ def main(argv):
             mode_get = True
         if (arg == "stream"):
             mode_stream = True
+        if (arg == "add"):
+            mode_add = True
+            add_targets = narg
+        if (arg == "del"):
+            mode_del = True
+            del_targets = narg
         # Targets
         if (arg == "list"):
             target_list = True
@@ -491,10 +536,10 @@ def main(argv):
     #for k in att:
     #    print k+": "+settings[k]
 
-    if sum([mode_show, mode_get, mode_stream]) == 0:
+    if sum([mode_show, mode_get, mode_stream, mode_add, mode_del]) == 0:
         mode_show = True
-    if sum([mode_show, mode_get, mode_stream]) > 1:
-        print "Only one of show/get/stream is allowed."
+    if sum([mode_show, mode_get, mode_stream, mode_add, mode_del]) > 1:
+        print "Only one of show/get/stream/add/del is allowed."
         sys.exit(0)
 
     if sum([target_list, target_seasons, target_search]) == 0:
@@ -502,6 +547,20 @@ def main(argv):
     if sum([target_list, target_seasons, target_search]) > 1:
         print "Only one of show/get/stream is allowed."
         sys.exit(0)
+
+    # List editing
+    if mode_add:
+        if alpha:
+            print "Adding/removing favourites not yet supported for alpha.tvkaista.fi"
+        else:
+            editlist("add",add_targets)
+        exit(0)
+    if mode_del:
+        if alpha:
+            print "Adding/removing favourites not yet supported for alpha.tvkaista.fi"
+        else: 
+            editlist("del",del_targets)
+        exit(0)
 
     if target_search:
         if alpha:
@@ -536,7 +595,7 @@ def main(argv):
     elif mode_show:
         for t in targets:
             box = '[*] ' if t.downloaded() else '[ ] '
-            print box + t.label()
+            print box + t.longlabel()
     # Get
     elif mode_get:
         [t.download() for t in targets]
@@ -547,6 +606,12 @@ TMP_SUFFIX = '.part'
 SUB_SUFFIX = '.srt'
 # Progress bar width
 BAR_WIDTH = 30
+
+# HTTP headers
+headers = {'Content-type': 'application/x-www-form-urlencoded'}
+http = httplib2.Http()
+settings = {}
+
 VIDEOPLAYER = 'mplayer'
 settings = {}
 # Required configuration options
@@ -565,6 +630,8 @@ target_search = False
 mode_show = False
 mode_get = False
 mode_stream = False
+mode_add = False
+mode_del = False
 
 if __name__ == "__main__":
     main(sys.argv[1:])
