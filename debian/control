@@ -1,4 +1,4 @@
-Source: tvkaista-download
+Source: tvkaista-cli
 Section: web
 Priority: extra
 Maintainer: Matti Pöllä <mpo@iki.fi>
@@ -6,7 +6,7 @@ Build-Depends: python, cdbs, debhelper (>= 5), python-central (>= 0.5), python-s
 XS-Python-Version: >= 2.4
 Standards-Version: 3.8.0
 
-Package: tvkaista-download
+Package: tvkaista-cli
 Architecture: all
 Depends: python (>= 2.4), python-central (>= 0.5), python-pkg-resources, ${misc:Depends}
 XB-Python-Version: ${python:Versions}

@@ -1,5 +1,5 @@
 #!/bin/sh
-# postinst script for tvkaista-download
+# postinst script for tvkaista-cli
 #
 # see: dh_installdeb(1)
 

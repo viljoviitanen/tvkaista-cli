@@ -23,9 +23,9 @@ register:
 	-python2.5 setup.py register upload --sign
 
 uninstall:
-	-easy_install -m tvkaista-download
-	-rm -f /usr/bin/tvkaista-download
-	-rm -rf /usr/lib/python2.5/site-packages/tvkaista-download*
+	-easy_install -m tvkaista-cli
+	-rm -f /usr/bin/tvkaista-cli
+	-rm -rf /usr/lib/python2.5/site-packages/tvkaista-cli*
 
 clean:
 	rm -rf ./build ./dist ./MANIFEST ./tvkaista_download.egg-info

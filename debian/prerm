@@ -1,5 +1,5 @@
 #!/bin/sh
-# prerm script for tvkaista-download
+# prerm script for tvkaista-cli
 #
 # see: dh_installdeb(1)
 

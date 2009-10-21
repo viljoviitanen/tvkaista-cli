@@ -7,16 +7,16 @@ from distutils.core import setup
 import sys
 reload(sys).setdefaultencoding("UTF-8")
 
-setup(name='tvkaista-download',
-      description='Batch download recordings from tvkaista.fi PVR service',
-      version='0.51',
+setup(name='tvkaista-cli',
+      description='Command line interface to tvkaista.fi PVR service',
+      version='0.52',
       packages = find_packages(),
       scripts=['scripts/tvkaista'],
       author="Matti Pöllä",
       author_email="mpo@iki.fi",
-      url="http://code.google.com/p/tvkaista-download/",
+      url="http://code.google.com/p/tvkaista-cli/",
       license='GPL',
-      keywords='tvkaista download video',
-      long_description='TVkaista.fi is a PVR (personal video recorder) service with a www interface. This script allows registered tvkaista users to download the set of favorite recordings.'
+      keywords='tvkaista pvr video',
+      long_description='TVkaista.fi is a PVR (personal video recorder) service with a www interface. This script allows registered tvkaista users to search, download and stream programs from the command line.'
       )
 
