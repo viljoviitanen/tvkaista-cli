@@ -135,20 +135,24 @@ def cursor_unhide():
 
 # Usage message
 def usage():
-    print "Usage: tvkaista[-hvfupsd] show/get/stream list/seasons/search"
+    print "Usage: tvkaista[-hvfupsd] command target"
+    print ""
+    print " Commands:  show (default)    show programs"
+    print "            get               download programs"
+    print "            stream            stream programs"
+    print ""
+    print " Targets:   list (default)    playlist"
+    print "            seasons           seasons of favourites"
+    print "            search [term]     search for programs"
     print ""
     print " Options:  -h --help          show this message"
     print "           -v                 print more information"
-    print "           --prompt           prompt before downloading"
-    print "           -s                 show list of favourites"
+    print "           --prompt           ask separately for each program"
     print "           -u                 username"
     print "           -p                 password"
     print "           -f                 video format (iTunes/flv/h264/ts/help)"
     print "           -d                 download directory"
     print "           --alpha            use alpha.tvkaista.fi"
-    print "           --seasons          download seasons feed"
-    print "           --search keyword   search program index"
-    print "           --watch            watch program"
     print ""
 
 # List available video formats.
@@ -261,6 +265,13 @@ def unescape(text):
         return text
     return re.sub("&#?\w+;", fixup, text)
 
+# Helper function for promt; give a name for operation modes
+def command_name():
+    if mode_get:
+        return "Download"
+    if mode_stream:
+        return "Watch"
+
 # Download the list of favorite recordings and build a list of download
 # targets. Original code from tvkaistaforxbmc plugin
 def feedreader(feed):
@@ -288,7 +299,7 @@ def feedreader(feed):
         program = Program(pid,ptit,0,pdt)
         if (prompt and not program.downloaded()):
             print program.label()
-        if (prompt and raw_input('Download (Y/n) ') == 'n'):
+        if (prompt and raw_input(command_name() + ' (Y/n) ') == 'n'):
             continue
         ret.append(program)
     dom.unlink()
@@ -342,29 +353,52 @@ def login():
     headers = {'Content-type': 'application/x-www-form-urlencoded'}
     response, content = http.request(loginurl, 'POST', headers=headers, body=urllib.urlencode(body))
     return response['set-cookie']
- 
-#def login_alpha():
-#    loginurl = 'http://alpha.tvkaista.fi/login/'
-#    body = {'action': 'login', 'username': settings['username'], 'password': settings['password'], 'rememberme':'on'}
-#    global headers
-#    headers = {'Content-type': 'application/x-www-form-urlencoded'}
-#    response, content = http.request(loginurl, 'POST', headers=headers, body=urllib.urlencode(body))
-#    print "LOGIN RESPONSE", response
-#    print "LOGIN CONTENT", content
-#    return response['set-cookie']
+
+# Login to alpha.tvkaista.fi 
+def login_alpha():
+    loginurl = 'http://alpha.tvkaista.fi/login/'
+    body = {'action': 'login', 'username': settings['username'], 'password': settings['password'], 'rememberme':'on'}
+    global headers
+    headers = {'Content-type': 'application/x-www-form-urlencoded'}
+    response, content = http.request(loginurl, 'POST', headers=headers, body=urllib.urlencode(body))
+    return response['set-cookie']
 
 # Add/delete items in the playlist.
-def editlist(action,id):
+def editlist(action,idn):
     headers['Cookie'] = login()
     if action == 'add':
-        url = "http://www.tvkaista.fi/netpvr/Playlist?action=add&id=%s" % (id)
+        url = "http://www.tvkaista.fi/netpvr/Playlist?action=add&id=%s" % (idn)
     elif action == 'del':
-        url = "http://www.tvkaista.fi/netpvr/Playlist?action=remove&id=%s" % (id)
-    #print url
+        url = "http://www.tvkaista.fi/netpvr/Playlist?action=remove&id=%s" % (idn)
     response, content = http.request(url, 'GET', headers=headers)
 
 # Add/delete items in the playlist for alpha site.
-#def editlist(action,id):
+def editlist_alpha(action,idn):
+    sessionid = login_alpha()
+    sessionid = sessionid[11:43] # FIXME: Do this split properly
+    if action == 'add':
+        fname = 'addToPlaylist'
+    if action == 'del':
+        fname = 'removeFromPlaylist'
+    url = 'http://alpha.tvkaista.fi/dwr/call/plaincall/TVKaistaCentreServer.%s.dwr;jsessionid=%s?=' % (fname,sessionid)
+    postdata = {    
+        'callCount':'1',
+        'page':'/recordings/',
+        'httpSessionId':sessionid,
+        'scriptSessionId':sessionid,
+        'c0-scriptName':'TVKaistaCentreServer',
+        'c0-methodName':fname,
+        'c0-id':'0',
+        'c0-param0':'boolean:false',
+        'c0-param1':'number:' + str(idn),
+        'batchId':'1'
+    }
+    try:
+        content = urllib2.urlopen(url,urllib.urlencode(postdata)).read()
+        #print content
+    except Error as detail:
+        print detail
+        exit(1)
 
 # Format raw byte count into reasonable units.
 def dataformat(b):
@@ -551,14 +585,14 @@ def main(argv):
     # List editing
     if mode_add:
         if alpha:
-            print "Adding/removing favourites not yet supported for alpha.tvkaista.fi"
+            editlist_alpha("add",add_targets)
         else:
             editlist("add",add_targets)
         exit(0)
     if mode_del:
         if alpha:
-            print "Adding/removing favourites not yet supported for alpha.tvkaista.fi"
-        else: 
+            editlist_alpha("del",del_targets)
+        else:
             editlist("del",del_targets)
         exit(0)
 
