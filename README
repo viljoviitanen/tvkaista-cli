@@ -1,4 +1,4 @@
-tvkaista-cli - batch download recordings from tvkaista.fi PVR service
+tvkaista-cli - command line interface to tvkaista.fi PVR service
 
   http://code.google.com/p/tvkaista-cli/
 
@@ -7,7 +7,7 @@ www interface. This script allows registered tvkaista users to download the set
 of favorite recordings.
 
 TVkaista.fi on tallentava digiboksipalvelu, jota käytetään nettikäyttöliittymän 
-avulla. Tämä skirpti mahdollistaa suosikkiohjelmien lataamisen omalle 
-tietokoneelle kätevästi yhdellä komennolla. Käyttääksesi tätä ohjelmaa, sinulla 
+avulla. Tämän työkalun avulla voit etsiä, ladata ja katsoa ohjelmia 
+komentorivikäyttöliittymän kautta. Käyttääksesi tätä ohjelmaa, sinulla 
 täytyy olla tunnus TVkaista.fi -palveluun.
 
