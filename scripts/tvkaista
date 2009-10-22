@@ -33,13 +33,12 @@ import shutil
 import time
 import datetime
 import httplib2
+import webbrowser
 
 from string import split, replace, find
 from math import floor
 from xml.dom import minidom
 from subprocess import call
-
-from tvkaista_alpha import alpha_hello
 
 class Timer:
     """
@@ -121,6 +120,9 @@ class Program:
 
     def geturl(self):
         return self.vurl
+        
+    def getid(self):
+        return self.idn
 
 def cursor_hide():
     """
@@ -148,6 +150,7 @@ def usage():
     print "            search [term]     search for programs"
     print ""
     print " Options:  -h --help          show this message"
+    print "           --version          show version"
     print "           -v                 print more information"
     print "           --prompt           ask separately for each program"
     print "           -u                 username"
@@ -272,7 +275,9 @@ def command_name():
     if mode_get:
         return "Download"
     if mode_stream:
-        return "Watch"
+        return "Stream"
+    if mode_play:
+        return "Play"
 
 # Download the list of favorite recordings and build a list of download
 # targets. Original code from tvkaistaforxbmc plugin
@@ -467,6 +472,15 @@ def valid_settings(s,critical):
             else:
                 return False
     return True
+    
+# Add a format-specific suffix to play urls in alpha.tvkaista.fi
+def play_url_suffix_alpha(format):
+    return {
+      'iTunes': '/3/300000',
+      'flv' :   '/4/1000000',
+      'h264':   '/3/2000000',
+      'ts':     '/0/8000000'
+    }[format] 
 
 # Main program
 def main(argv):
@@ -481,6 +495,7 @@ def main(argv):
     global mode_show
     global mode_get
     global mode_stream
+    global mode_play
     global mode_add
     global mode_del
     global target_list
@@ -530,6 +545,8 @@ def main(argv):
             mode_get = True
         if (arg == "stream"):
             mode_stream = True
+        if (arg == "play"):
+            mode_play = True
         if (arg == "add"):
             mode_add = True
             add_targets = narg
@@ -572,10 +589,10 @@ def main(argv):
     #for k in att:
     #    print k+": "+settings[k]
 
-    if sum([mode_show, mode_get, mode_stream, mode_add, mode_del]) == 0:
+    if sum([mode_show, mode_get, mode_stream, mode_play, mode_add, mode_del]) == 0:
         mode_show = True
-    if sum([mode_show, mode_get, mode_stream, mode_add, mode_del]) > 1:
-        print "Only one of show/get/stream/add/del is allowed."
+    if sum([mode_show, mode_get, mode_stream, mode_play, mode_add, mode_del]) > 1:
+        print "Only one of show/get/stream/play/add/del is allowed."
         sys.exit(0)
 
     if sum([target_list, target_seasons, target_search]) == 0:
@@ -627,6 +644,17 @@ def main(argv):
     # Stream
     if mode_stream:
         call([VIDEOPLAYER, targets[-1].geturl()])
+    
+    # Play in a browser window
+    if mode_play:
+        if alpha:
+            purl = 'http://alpha.tvkaista.fi/recordings/play/%s%s' % \
+                   (targets[-1].getid(), play_url_suffix_alpha(settings['format']))
+        else:
+            purl = 'http://www.tvkaista.fi/netpvr/Recordings?action=play&id=%s&format=%s' % \
+                   (targets[-1].getid(), formatstring(settings['format']))
+        webbrowser.open(purl)
+
     # Show (default)
     elif mode_show:
         for t in targets:
@@ -666,6 +694,7 @@ target_search = False
 mode_show = False
 mode_get = False
 mode_stream = False
+mode_play = False
 mode_add = False
 mode_del = False
 
