@@ -39,6 +39,8 @@ from math import floor
 from xml.dom import minidom
 from subprocess import call
 
+from tvkaista_alpha import alpha_hello
+
 class Timer:
     """
     The Timer class is used as a stopwatch to estimate the
