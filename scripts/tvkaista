@@ -446,7 +446,7 @@ def progressbar(count, blockSize, totalSize):
 # Return a suitable file name for configuration options.
 def getconffile():
     # TODO: OS specific selection of configuration file name.
-    return os.getenv("HOME") + "/.tvkaista-clirc"
+    return os.getenv("HOME") + "/.tvkaista-cli"
 
 # Confirm that all required settings have been defined.
 def valid_settings(s,critical):
@@ -454,13 +454,13 @@ def valid_settings(s,critical):
         try:
             if (s[k] == None):
                 if (critical):
-                    print k + " not specified. See \"tvkaista-cli --help\""
+                    print k + " not specified. See \"tvkaista --help\""
                     sys.exit(1)
                 else:
                     return False
         except KeyError:
             if (critical):
-                print k + " not specified. See \"tvkaista-cli --help\""
+                print k + " not specified. See \"tvkaista --help\""
                 sys.exit(1)
             else:
                 return False
