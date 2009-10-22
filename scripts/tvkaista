@@ -396,8 +396,8 @@ def editlist_alpha(action,idn):
     try:
         content = urllib2.urlopen(url,urllib.urlencode(postdata)).read()
         #print content
-    except Error as detail:
-        print detail
+    except Error:
+        print "Could not update favourites."
         exit(1)
 
 # Format raw byte count into reasonable units.
