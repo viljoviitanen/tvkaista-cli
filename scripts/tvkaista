@@ -1,7 +1,7 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 # coding=UTF-8
 #
-# tvkaista-cli - Batch download recordings from tvkaista.fi PVR service
+# tvkaista-cli - a command line interface to tvkaista.fi PVR service
 #
 # http://code.google.com/p/tvkaista-cli/
 #
@@ -19,8 +19,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+__author__ = "Matti Pöllä"
+__copyright__ = "Copyright 2009, Matti Pöllä"
+__license__ = "GPL"
+__email__ = "mpo@iki.fi"
 __version__ = "$Revision$"
-# $Source$
 
 import urllib
 import urllib2
@@ -39,6 +42,45 @@ from string import split, replace, find
 from math import floor
 from xml.dom import minidom
 from subprocess import call
+
+# File suffix for incomplete downloads
+TMP_SUFFIX = '.part'
+# File suffix for subtitle files
+SUB_SUFFIX = '.srt'
+# Video player to stream with
+VPLAYER = 'mplayer'
+# Progress bar width
+BAR_WIDTH = 30
+
+# HTTP headers
+headers = {'Content-type': 'application/x-www-form-urlencoded'}
+http = httplib2.Http()
+settings = {}
+
+settings = {}
+att = ['username','password','format','downloaddir']
+formats = ['iTunes','flv','h264','ts']
+verbose = False
+debug = False
+prompt = False
+show = False
+alpha = False
+
+target = {}
+target['list'] = False
+target['seasons'] = False
+target['search'] = False
+
+# Print list of programs by default
+mode = {}
+mode['show'] = False
+mode['add'] = False
+mode['del'] = False
+mode['seasonadd'] = False
+mode['seasondel'] = False
+mode['get'] = False
+mode['stream'] = False
+mode['play'] = False
 
 class Timer:
     """
@@ -95,17 +137,19 @@ class Program:
                 if (os.path.exists(self.vfile + TMP_SUFFIX)):
                     shutil.move(self.vfile+TMP_SUFFIX, self.vfile)
 		print "\n"
-            except:
+            except KeyboardInterrupt:
                 cursor_unhide()
                 print "\nDownload interrupted"
+                exit(0)
         # Download subtitle file. Remove if empty.
         if (not os.path.exists(self.sfile)):
             try:
                 urllib.urlretrieve(self.surl, self.sfile + TMP_SUFFIX)
                 if (os.path.exists(self.sfile + TMP_SUFFIX)):
                     shutil.move(self.sfile + TMP_SUFFIX, self.sfile)
-            except:
+            except KeyboardInterrupt:
                 print "\nDownload interrupted"
+                exit(0)
             if (os.stat(self.sfile).st_size == 0):
                 os.remove(self.sfile)
 
@@ -139,25 +183,29 @@ def cursor_unhide():
 
 # Usage message
 def usage():
-    print "Usage: tvkaista[-hvfupsd] command target"
+    print "Usage: tvkaista [-hvfupsd] command target"
     print ""
-    print " Commands:  show (default)    show programs"
-    print "            get               download programs"
-    print "            stream            stream programs"
+    print "Commands:"
+    print " show              show programs (default)"
+    print " get               download programs"
+    print " stream            stream using an external video player"
+    print " play              open in a browser window"
     print ""
-    print " Targets:   list (default)    playlist"
-    print "            seasons           seasons of favourites"
-    print "            search [term]     search for programs"
+    print "Targets:" 
+    print " list              playlist"
+    print " seasons           seasons of favourites"
+    print " search [term]     search for programs (default)"
     print ""
-    print " Options:  -h --help          show this message"
-    print "           --version          show version"
-    print "           -v                 print more information"
-    print "           --prompt           ask separately for each program"
-    print "           -u                 username"
-    print "           -p                 password"
-    print "           -f                 video format (iTunes/flv/h264/ts/help)"
-    print "           -d                 download directory"
-    print "           --alpha            use alpha.tvkaista.fi"
+    print "Options:" 
+    print "  -h --help        show this message"
+    print "  --version        show version"
+    print "  -v               print more information"
+    print "  --prompt         ask separately for each program"
+    print "  -u               username"
+    print "  -p               password"
+    print "  -f               video format (iTunes/flv/h264/ts/help)"
+    print "  -d               download directory"
+    print "  --alpha          use alpha.tvkaista.fi"
     print ""
 
 # List available video formats.
@@ -272,16 +320,18 @@ def unescape(text):
 
 # Helper function for promt; give a name for operation modes
 def command_name():
-    if mode_get:
+    if mode['get']:
         return "Download"
-    if mode_stream:
+    if mode['stream']:
         return "Stream"
-    if mode_play:
+    if mode['play']:
         return "Play"
 
 # Download the list of favorite recordings and build a list of download
 # targets. Original code from tvkaistaforxbmc plugin
 def feedreader(feed):
+    if debug:
+        print "FEED " + feed
     targets = []
     passman = urllib2.HTTPPasswordMgrWithDefaultRealm()
     passman.add_password(None, feed, settings['username'], \
@@ -299,8 +349,13 @@ def feedreader(feed):
     for i in items:
         ptit = i.getElementsByTagName('title')[0].childNodes[0].nodeValue
         pgui= i.getElementsByTagName('guid')[0].childNodes[0].nodeValue
-        pdt = time.mktime(time.strptime(i.getElementsByTagName('pubDate')[0]\
-	      .childNodes[0].nodeValue, "%a, %d %b %Y %H:%M:%S +0300"))
+        # TODO: Handle DST more gracefully than this
+        try:
+            pdt = time.mktime(time.strptime(i.getElementsByTagName('pubDate')\
+                  [0].childNodes[0].nodeValue, "%a, %d %b %Y %H:%M:%S +0200"))
+        except(ValueError):
+            pdt = time.mktime(time.strptime(i.getElementsByTagName('pubDate')\
+                  [0].childNodes[0].nodeValue, "%a, %d %b %Y %H:%M:%S +0300"))
         pid = re.compile('http://www.tvkaista.fi/netpvr/Search[?]id=(\d+)')\
 	      .findall(pgui)[0]
         program = Program(pid,ptit,0,pdt)
@@ -355,19 +410,23 @@ def feedreader_alpha(feed):
 # Required for editing playlist
 def login():
     loginurl = 'http://www.tvkaista.fi/netpvr/Login'
-    body = {'action': 'login', 'username': settings['username'], 'password': settings['password'], 'rememberme':'on'}
+    body = {'action': 'login', 'username': settings['username'], \
+            'password': settings['password'], 'rememberme':'on'}
     global headers
     headers = {'Content-type': 'application/x-www-form-urlencoded'}
-    response, content = http.request(loginurl, 'POST', headers=headers, body=urllib.urlencode(body))
+    response, content = http.request(loginurl, 'POST', headers=headers, \
+                        body=urllib.urlencode(body))
     return response['set-cookie']
 
 # Login to alpha.tvkaista.fi 
 def login_alpha():
     loginurl = 'http://alpha.tvkaista.fi/login/'
-    body = {'action': 'login', 'username': settings['username'], 'password': settings['password'], 'rememberme':'on'}
+    body = {'action': 'login', 'username': settings['username'], \
+            'password': settings['password'], 'rememberme':'on'}
     global headers
     headers = {'Content-type': 'application/x-www-form-urlencoded'}
-    response, content = http.request(loginurl, 'POST', headers=headers, body=urllib.urlencode(body))
+    response, content = http.request(loginurl, 'POST', headers=headers, \
+                        body=urllib.urlencode(body))
     return response['set-cookie']
 
 # Add/delete items in the playlist.
@@ -382,7 +441,7 @@ def editlist(action,idn):
 # Add/delete items in the playlist for alpha site.
 def editlist_alpha(action,idn):
     sessionid = login_alpha()
-    sessionid = sessionid[11:43] # FIXME: Do this split properly
+    sessionid = sessionid[11:43] # FIXME: Parse session id properly
     if action == 'add':
         fname = 'addToPlaylist'
     if action == 'del':
@@ -487,28 +546,24 @@ def main(argv):
 
     global conffile
     global verbose
+    global debug
     global prompt
     global show
     global settings
     global timer
     global alpha
-    global mode_show
-    global mode_get
-    global mode_stream
-    global mode_play
-    global mode_add
-    global mode_del
-    global target_list
     global target_seasons
     global target_search
+    global target
 
     timer = Timer()
     exp_settings = {}
 
     # Processing of command line options using getopt.
     try:
-        #print argv
-        opts, args = getopt.getopt(argv, "hvpf:u:p:d:",["help","verbose","prompt","format=","username=","password=","downloaddir=","alpha"])
+        opts, args = getopt.getopt(argv, "hvpf:u:p:d:",["help","verbose",\
+                     "debug","prompt","format=","username=","password=",\
+                     "downloaddir=","alpha"])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
@@ -527,45 +582,55 @@ def main(argv):
             exp_settings['downloaddir'] = arg
         if opt in ("-v", "--verbose"):
             verbose = True
+        if opt in ("--debug"):
+            debug = True
         if (opt == "--prompt"):
             prompt = True
         if (opt == "--alpha"):
             alpha = True
 
-    for i in xrange(len(args)):
-        # Modes
-        arg = args[i]
-        try:
-            narg = args[i+1]
-        except (IndexError):
-            narg = "tyhja"
-        if (arg == "show"):
-            mode_show = True
-        if (arg == "get"):
-            mode_get = True
-        if (arg == "stream"):
-            mode_stream = True
-        if (arg == "play"):
-            mode_play = True
-        if (arg == "add"):
-            mode_add = True
-            add_targets = narg
-        if (arg == "del"):
-            mode_del = True
-            del_targets = narg
-        # Targets
-        if (arg == "list"):
-            target_list = True
-        if (arg == "seasons"):
-            target_seasons = True
-        if (arg == "search"):
-            target_search = True
-            search_terms = narg
+    if len(args) == 0:
+        usage()
+        exit(0)
 
-    #if (mode_get == mode_stream == False):
-    #    mode_show = True
-    #if (target_seasons == target_search == False):
-    #    target_list = True
+    # Parse action
+    if args[0] in mode.keys():    
+        mode[args[0]] = True
+        if debug:
+            print "MODE: " + args[0]
+        args.pop(0)
+    # Default to show
+    else:
+        mode['show'] = True
+        if debug:
+            print "MODE: show"
+
+    target_ids = re.findall('([0-9]{6,7})', " ".join(args))
+
+    # No target given
+    if len(args) == 0:
+        usage()
+        exit(0)
+
+    # Parse target
+    if args[0] in target.keys():
+        target[args[0]] = True
+        args.pop(0)
+        if debug:
+            print "TARGET: " + args[0]
+    # Specific IDs
+    elif len(target_ids) > 0:
+        target['byid'] = True
+        if debug:
+            print "TARGET: IDs " + ",".join(target_ids)
+    # Default to search
+    else:
+        target['search'] = True
+        if args[0] == 'search':
+            args.pop(0)
+    search_terms = " ".join(args)
+    if debug:
+        print "TARGET: search \"" + search_terms + "\""
 
     # First see whether a configuration file is available.
     conffile = getconffile()
@@ -586,36 +651,67 @@ def main(argv):
     valid_settings(settings, True)
 
     # Debug: print all settings
-    #for k in att:
-    #    print k+": "+settings[k]
+    if debug:
+        for k in att:
+            print k + ": " + settings[k]
 
-    if sum([mode_show, mode_get, mode_stream, mode_play, mode_add, mode_del]) == 0:
-        mode_show = True
-    if sum([mode_show, mode_get, mode_stream, mode_play, mode_add, mode_del]) > 1:
+    if sum(mode.values()) > 1:
         print "Only one of show/get/stream/play/add/del is allowed."
         sys.exit(0)
+        
+    # If no mode if specified, select 'show'
+    elif sum(mode.values()) == 0:
+        mode['show'] = True
 
-    if sum([target_list, target_seasons, target_search]) == 0:
-        target_list = True
-    if sum([target_list, target_seasons, target_search]) > 1:
-        print "Only one of show/get/stream is allowed."
+    if sum(target.values()) > 1:
+        print "Only one of target is allowed."
         sys.exit(0)
 
-    # List editing
-    if mode_add:
+    # Add/del mode
+    if mode['add'] and len(target_ids) > 0:
         if alpha:
-            editlist_alpha("add",add_targets)
+            if debug:
+                print "ADD: " + " ".join(target_ids)
+            [editlist_alpha("add",t) for t in target_ids]
         else:
-            editlist("add",add_targets)
+            if debug:
+                print "ADD: " + " ".join(target_ids)
+            [editlist("add",t) for t in target_ids]
         exit(0)
-    if mode_del:
+    if mode['del']:
         if alpha:
-            editlist_alpha("del",del_targets)
+            if debug:
+                print "DEL: " + " ".join(target_ids)
+            [editlist_alpha("del",t) for t in target_ids]
         else:
-            editlist("del",del_targets)
+            if debug:
+                print "DEL: " + " ".join(target_ids)
+            [editlist("del",t) for t in target_ids]
+        exit(0)
+        
+    # Seasonadd/seasondel mode
+    if mode['seasonadd'] or mode['seasondel']:
+        print "Not implemented yet."
         exit(0)
 
-    if target_search:
+    # Playlist
+    if target['list']:
+        if alpha:
+            feed = 'http://alpha.tvkaista.fi/feed/playlist/' + \
+            formatstring(settings['format']) + '.rss'
+        else:
+            feed = "http://www.tvkaista.fi/netpvr/Feed?channel=Playlist&format=" + \
+            settings['format'] + "&extension=itunes"
+    # Seasons
+    elif target['seasons']:
+        if alpha:
+            feed = 'http://alpha.tvkaista.fi/feed/seasonpasses/*/' + \
+            formatstring(settings['format']) + '.rss'
+        else:
+            feed = 'http://www.tvkaista.fi/netpvr/Feed?channel=seasonpass&format=' + \
+            formatstring(settings['format']) + '&extension=itunes'
+    # Search
+    elif target['search']:
         if alpha:
             feed = "http://alpha.tvkaista.fi/feed/search/title/" + \
             urllib.urlencode({'':search_terms})[1:] + "/" + \
@@ -624,29 +720,25 @@ def main(argv):
             feed = "http://www.tvkaista.fi/netpvr/Feed?channel=search&" + \
             urllib.urlencode({'search':search_terms}) + \
             "&format=" + formatstring(settings['format']) + "&extension=rss"
-    elif target_seasons:
-        if alpha:
-            feed = 'http://alpha.tvkaista.fi/feed/seasonpasses/*/' + \
-            formatstring(settings['format']) + '.rss'
-        else:
-            feed = 'http://www.tvkaista.fi/netpvr/Feed?channel=seasonpass&format=' + \
-            formatstring(settings['format']) + '&extension=itunes'
-    else:
-        if alpha:
-            feed = 'http://alpha.tvkaista.fi/feed/playlist/' + \
-            formatstring(settings['format']) + '.rss'
-        else:
-            feed = "http://www.tvkaista.fi/netpvr/Feed?channel=Playlist&format=" + \
-            settings['format'] + "&extension=itunes"
 
     targets = feedreader_alpha(feed) if alpha else feedreader(feed)
+    if len(targets) == 0:
+        print "No targets found."
+        exit(0)
 
-    # Stream
-    if mode_stream:
-        call([VIDEOPLAYER, targets[-1].geturl()])
-    
-    # Play in a browser window
-    if mode_play:
+    # Stream mode
+    if mode['stream']:
+        if debug:
+            print "STREAM " + targets[-1].getid()
+        try:
+            call([VPLAYER, targets[-1].geturl()])
+        except:
+            print "Could not launch streaming. Try 'play' mode."
+                
+    # Play mode
+    if mode['play']:
+        if debug:
+            print "PLAY " + targets[-1].getid()
         if alpha:
             purl = 'http://alpha.tvkaista.fi/recordings/play/%s%s' % \
                    (targets[-1].getid(), play_url_suffix_alpha(settings['format']))
@@ -655,48 +747,20 @@ def main(argv):
                    (targets[-1].getid(), formatstring(settings['format']))
         webbrowser.open(purl)
 
-    # Show (default)
-    elif mode_show:
+    # Show mode
+    elif mode['show']: # None of show[''] variables are set
+        if debug:
+            print "SHOW " + targets[-1].getid()
         for t in targets:
             box = '[*] ' if t.downloaded() else '[ ] '
             print box + t.longlabel()
-    # Get
-    elif mode_get:
+    # Get mode
+    elif mode['get'] and len(targets) > 0:
+        if debug:
+            print "GET " + ", ".join([t.getid() for t in targets])
         [t.download() for t in targets]
     sys.exit(0)
 
-# File name suffix for incomplete downloads
-TMP_SUFFIX = '.part'
-SUB_SUFFIX = '.srt'
-# Progress bar width
-BAR_WIDTH = 30
-
-# HTTP headers
-headers = {'Content-type': 'application/x-www-form-urlencoded'}
-http = httplib2.Http()
-settings = {}
-
-VIDEOPLAYER = 'mplayer'
-settings = {}
-# Required configuration options
-att = ['username','password','format','downloaddir']
-# Available video formats
-formats = ['iTunes','flv','h264','ts']
-verbose = False
-prompt = False
-show = False
-alpha = False
-
-target_list = False
-target_seasons = False
-target_search = False
-
-mode_show = False
-mode_get = False
-mode_stream = False
-mode_play = False
-mode_add = False
-mode_del = False
-
 if __name__ == "__main__":
     main(sys.argv[1:])
+
