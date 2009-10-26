@@ -52,6 +52,10 @@ VPLAYER = 'mplayer'
 # Progress bar width
 BAR_WIDTH = 30
 
+SITE = 'www.tvkaista.fi'
+ASITE = 'alpha.tvkaista.fi'
+
+
 # HTTP headers
 headers = {'Content-type': 'application/x-www-form-urlencoded'}
 http = httplib2.Http()
@@ -103,21 +107,23 @@ class Program:
         self.length = int(plen)
         self.title = ptit
         self.date = time.strftime("%Y-%m-%d",time.localtime(pdt))
+        year = time.strftime("%Y",time.localtime(pdt))
+        month = time.strftime("%m",time.localtime(pdt))
         self.time = "klo " + time.strftime("%H:%M",time.localtime(pdt))
+        self.dir = settings['downloaddir'] + year + "/" + month
         if (alpha):
-            urlbase = "@alpha.tvkaista.fi/recordings/download/"
+            urlbase = "@" + ASITE + "/recordings/download/"
         else:
-            urlbase = "@www.tvkaista.fi/netpvr/Download/"
+            urlbase = "@" + SITE + "/netpvr/Download/"
         self.vurl = "http://" + settings['username'] + ":" + \
                     settings['password'] + urlbase+pid + "." + \
                     formatstring(settings['format'])
         self.surl = "http://" + settings['username'] + ":" + \
                     settings['password'] + urlbase+pid + "" + \
                     SUB_SUFFIX
-        self.vfile = settings['downloaddir'] + ptit.replace(" ","_") + "_" + \
-                     self.date + "_" + pid + "." + \
-                     filesuffix(settings['format'])
-        self.sfile = settings['downloaddir'] + ptit.replace(" ","_") + "_" + \
+        self.vfile = self.dir + "/" + ptit.replace(" ","_") + "_" + \
+                     self.date + "_" + pid + "." + filesuffix(settings['format'])
+        self.sfile = self.dir + "/" + ptit.replace(" ","_") + "_" + \
                      self.date + "_" + pid + "" + SUB_SUFFIX
 
     def download(self):
@@ -125,6 +131,12 @@ class Program:
         The download method executes the actual download process of
         a video/subtitle file.
         """
+        if not os.path.exists(self.dir):
+            try:
+                os.makedirs(self.dir)
+            except OSError:
+                print "Could not write to %" % self.dir
+                exit(1)
         print self.label()
         if (os.path.exists(self.vfile)):
             sys.stdout.write("\r[" + BAR_WIDTH * '=' + '] (done)\n')
@@ -356,7 +368,7 @@ def feedreader(feed):
         except(ValueError):
             pdt = time.mktime(time.strptime(i.getElementsByTagName('pubDate')\
                   [0].childNodes[0].nodeValue, "%a, %d %b %Y %H:%M:%S +0300"))
-        pid = re.compile('http://www.tvkaista.fi/netpvr/Search[?]id=(\d+)')\
+        pid = re.compile('http://' + SITE + '/netpvr/Search[?]id=(\d+)')\
 	      .findall(pgui)[0]
         program = Program(pid,ptit,0,pdt)
         if (prompt and not program.downloaded()):
@@ -409,7 +421,7 @@ def feedreader_alpha(feed):
 # Login to tvkaista.fi 
 # Required for editing playlist
 def login():
-    loginurl = 'http://www.tvkaista.fi/netpvr/Login'
+    loginurl = 'http://' + SITE + '/netpvr/Login'
     body = {'action': 'login', 'username': settings['username'], \
             'password': settings['password'], 'rememberme':'on'}
     global headers
@@ -420,7 +432,7 @@ def login():
 
 # Login to alpha.tvkaista.fi 
 def login_alpha():
-    loginurl = 'http://alpha.tvkaista.fi/login/'
+    loginurl = 'http://' + ASITE + '/login/'
     body = {'action': 'login', 'username': settings['username'], \
             'password': settings['password'], 'rememberme':'on'}
     global headers
@@ -433,9 +445,9 @@ def login_alpha():
 def editlist(action,idn):
     headers['Cookie'] = login()
     if action == 'add':
-        url = "http://www.tvkaista.fi/netpvr/Playlist?action=add&id=%s" % (idn)
+        url = "http://%s/netpvr/Playlist?action=add&id=%s" % (SITE, idn)
     elif action == 'del':
-        url = "http://www.tvkaista.fi/netpvr/Playlist?action=remove&id=%s" % (idn)
+        url = "http://%s/netpvr/Playlist?action=remove&id=%s" % (SITE, idn)
     response, content = http.request(url, 'GET', headers=headers)
 
 # Add/delete items in the playlist for alpha site.
@@ -446,7 +458,7 @@ def editlist_alpha(action,idn):
         fname = 'addToPlaylist'
     if action == 'del':
         fname = 'removeFromPlaylist'
-    url = 'http://alpha.tvkaista.fi/dwr/call/plaincall/TVKaistaCentreServer.%s.dwr;jsessionid=%s?=' % (fname,sessionid)
+    url = 'http://%s/dwr/call/plaincall/TVKaistaCentreServer.%s.dwr;jsessionid=%s?=' % (ASITE, fname, sessionid)
     postdata = {    
         'callCount':'1',
         'page':'/recordings/',
@@ -605,6 +617,7 @@ def main(argv):
         if debug:
             print "MODE: show"
 
+    # Look for program ID numbers as arguments
     target_ids = re.findall('([0-9]{6,7})', " ".join(args))
 
     # No target given
@@ -697,27 +710,27 @@ def main(argv):
     # Playlist
     if target['list']:
         if alpha:
-            feed = 'http://alpha.tvkaista.fi/feed/playlist/' + \
-            formatstring(settings['format']) + '.rss'
+            feed = 'http://%s/feed/playlist/%s.rss' % \
+            (ASITE, formatstring(settings['format']))
         else:
-            feed = "http://www.tvkaista.fi/netpvr/Feed?channel=Playlist&format=" + \
-            settings['format'] + "&extension=itunes"
+            feed = "http://%s/netpvr/Feed?channel=Playlist&format=%s&extension=itunes" % \
+            (SITE, settings['format'])
     # Seasons
     elif target['seasons']:
         if alpha:
-            feed = 'http://alpha.tvkaista.fi/feed/seasonpasses/*/' + \
-            formatstring(settings['format']) + '.rss'
+            feed = 'http://%s/feed/seasonpasses/*/%s.rss' % \
+            (ASITE, formatstring(settings['format']))
         else:
-            feed = 'http://www.tvkaista.fi/netpvr/Feed?channel=seasonpass&format=' + \
-            formatstring(settings['format']) + '&extension=itunes'
+            feed = 'http://%s/netpvr/Feed?channel=seasonpass&format=%s&extension=itunes' % \
+            (SITE, formatstring(settings['format']))
     # Search
     elif target['search']:
         if alpha:
-            feed = "http://alpha.tvkaista.fi/feed/search/title/" + \
+            feed = "http://" + ASITE + "/feed/search/title/" + \
             urllib.urlencode({'':search_terms})[1:] + "/" + \
             formatstring(settings['format'])+".rss"
         else:
-            feed = "http://www.tvkaista.fi/netpvr/Feed?channel=search&" + \
+            feed = "http://" + SITE + "/netpvr/Feed?channel=search&" + \
             urllib.urlencode({'search':search_terms}) + \
             "&format=" + formatstring(settings['format']) + "&extension=rss"
 
@@ -740,11 +753,11 @@ def main(argv):
         if debug:
             print "PLAY " + targets[-1].getid()
         if alpha:
-            purl = 'http://alpha.tvkaista.fi/recordings/play/%s%s' % \
-                   (targets[-1].getid(), play_url_suffix_alpha(settings['format']))
+            purl = 'http://%s/recordings/play/%s%s' % \
+                   (ASITE, targets[-1].getid(), play_url_suffix_alpha(settings['format']))
         else:
-            purl = 'http://www.tvkaista.fi/netpvr/Recordings?action=play&id=%s&format=%s' % \
-                   (targets[-1].getid(), formatstring(settings['format']))
+            purl = 'http://%s/netpvr/Recordings?action=play&id=%s&format=%s' % \
+                   (SITE, targets[-1].getid(), formatstring(settings['format']))
         webbrowser.open(purl)
 
     # Show mode
