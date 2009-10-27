@@ -177,12 +177,21 @@ class Program:
                 os.remove(self.sfile)
 
     def downloaded(self):
+        """
+        Check whether the recording has already been downloaded.
+        """
         return True if os.path.exists(self.vfile) else False
 
     def label(self,showid=False):
+        """
+        A short description about the recording.
+        """
         return self.date + " " +  self.time + " " + self.title
         
     def longlabel(self,showid=False):
+        """
+        A longer description about the recording.
+        """
         return self.idn + " " + self.date + " " +  self.time + " " + self.title
 
     def geturl(self):
@@ -199,13 +208,15 @@ def cursor_hide():
 
 def cursor_unhide():
     """
-    Make the cursor visible again after being
-    hidden during the download phase.
+    Make the cursor visible again after being hidden during the download phase.
     """
     sys.stdout.write('\033[?25h')
 
 # Usage message
 def usage():
+    """
+    Print instruction on how to use this program.
+    """
     print "Usage: tvkaista [-hvfupsd] command target"
     print ""
     print "Commands:"
@@ -259,6 +270,9 @@ def prompt_settings():
 # Write configuration file.
 # Format: option = value
 def write_rcfile(settings):
+    """
+    Write settings into a configuration file."
+    """
     omask = os.umask(077)
     f = open(getconffile(), 'w')
     f.write("# Configuration file for tvkaista-cli script\n")
@@ -271,6 +285,9 @@ def write_rcfile(settings):
 # Read configuration file.
 # Format: option = value
 def read_rcfile(filename):
+    """
+    Read settings from a configuration file.
+    """
     config = {}
     f = open(filename)
     for line in f:
@@ -287,6 +304,9 @@ def read_rcfile(filename):
 
 # Transform month name abbreviations into numbers 1-12.
 def rfc822month(mon):
+    """
+    Map month names into zero-padded numbers.
+    """
     return {
       'Jan': '01',
       'Feb': '02',
@@ -304,6 +324,9 @@ def rfc822month(mon):
 
 # Filename suffix for a given video format
 def filesuffix(format):
+    """
+    Map format names into file suffices.
+    """
     return {
       'iTunes': 'mp4',
       'flv' :   'flv',
@@ -313,6 +336,9 @@ def filesuffix(format):
 
 # Map from format types into file suffices
 def formatstring(format):
+    """
+    Map format names into tvkaista.fi's internal format
+    """
     return {
       'iTunes': 'mp4',
       'flv' :   'flv',
@@ -320,9 +346,11 @@ def formatstring(format):
       'ts':     'ts'
     }[format]
 
-# Remove HTML encoding of strings
-# Original code from tvkaistaforxbmc plugin
 def unescape(text):
+    """
+    Remove HTML encoding of strings
+    Original code from tvkaistaforxbmc plugin
+    """
     def fixup(m):
         text = m.group(0)
         if text[:2] == "&#":
@@ -353,6 +381,9 @@ def command_name():
 # Download the list of favorite recordings and build a list of download
 # targets. Original code from tvkaistaforxbmc plugin
 def feedreader(feed):
+    """
+    Build a list of recordings from a RSS feed.
+    """
     if debug:
         print "FEED " + feed
     targets = []
@@ -393,6 +424,9 @@ def feedreader(feed):
 # Parse a list of download targets from a RSS file into a list of
 # downloadable objects
 def feedreader_alpha(feed):
+    """
+    Build a list of recordings from a RSS feed (alpha version).
+    """
     targets = []
     passman = urllib2.HTTPPasswordMgrWithDefaultRealm()
     passman.add_password(None, feed, settings['username'], \
@@ -463,6 +497,9 @@ def editlist(action,idn):
 
 # Add/delete items in the playlist for alpha site.
 def editlist_alpha(action,idn):
+    """
+    Edit (add/remove) playlist.
+    """
     sessionid = login_alpha()
     sessionid = sessionid[11:43] # FIXME: Parse session id properly
     if action == 'add':
@@ -491,6 +528,9 @@ def editlist_alpha(action,idn):
 
 # Format raw byte count into reasonable units.
 def dataformat(b):
+    """
+    Show data amounts in a reasonable way.
+    """
     if (b < 1024):
         return "%d bytes" % b
     b = b / 1024
@@ -513,6 +553,9 @@ def timeformat(s):
 
 # Progress bar display for urllib.urlretrieve function.
 def progressbar(count, blockSize, totalSize):
+    """
+    Progress bar function for monitoring downloads.
+    """
     if (totalSize > 0):
         percent = int(count * blockSize * 100 / totalSize)
         blocks = int(count * blockSize * BAR_WIDTH / totalSize)
@@ -537,8 +580,10 @@ def getconffile():
     # TODO: OS specific selection of configuration file name.
     return os.getenv("HOME") + "/.tvkaista-cli"
 
-# Confirm that all required settings have been defined.
 def valid_settings(s,critical):
+    """
+    Confirm that all required settings have been defined.
+    """
     for k in att:
         try:
             if (s[k] == None):

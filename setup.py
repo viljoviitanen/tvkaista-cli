@@ -9,7 +9,7 @@ reload(sys).setdefaultencoding("UTF-8")
 
 setup(name='tvkaista-cli',
       description='Command line interface to tvkaista.fi PVR service',
-      version='0.54',
+      version='0.55',
       packages = find_packages(),
       install_requires = ['httplib2>0.3'],
       scripts=['scripts/tvkaista'],
