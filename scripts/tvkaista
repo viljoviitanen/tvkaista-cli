@@ -126,6 +126,12 @@ class Program:
         self.sfile = self.dir + "/" + ptit.replace(" ","_") + "_" + \
                      self.date + "_" + pid + "" + SUB_SUFFIX
 
+    def is_available(self):
+        """ 
+        Check file availability using the HTTP response code
+        """
+        return (urllib.urlopen(self.vurl).getcode() == 200)
+
     def download(self):
         """
         The download method executes the actual download process of
@@ -143,7 +149,7 @@ class Program:
         else:
             # Check that the file exists - encoding to various video formats
             # can take many hours.
-            if urllib.urlopen(self.vurl).getcode() == 404:
+            if not self.is_available():
                 print "File not available (try \"-f ts\" for raw MPEG stream)."
                 return
             try:
@@ -748,11 +754,15 @@ def main(argv):
     if mode['stream']:
         if debug:
             print "STREAM " + targets[-1].getid()
-        try:
-            call([VPLAYER, targets[-1].geturl()])
-        except:
-            print "Could not launch streaming. Try 'play' mode."
-                
+        if targets[-1].is_available():
+            try:
+                call([VPLAYER, targets[-1].geturl()])
+            except:
+                print "Could not launch streaming. Try 'play' mode."
+        else:
+            print "File not available (try \"-f ts\" for raw MPEG stream)."
+            
+            
     # Play mode
     if mode['play']:
         if debug:
