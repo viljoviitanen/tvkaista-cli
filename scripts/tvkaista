@@ -110,7 +110,7 @@ class Program:
         year = time.strftime("%Y",time.localtime(pdt))
         month = time.strftime("%m",time.localtime(pdt))
         self.time = "klo " + time.strftime("%H:%M",time.localtime(pdt))
-        self.dir = settings['downloaddir'] + year + "/" + month
+        self.dir = settings['downloaddir'] + "/" + year + "/" + month
         if (alpha):
             urlbase = "@" + ASITE + "/recordings/download/"
         else:
@@ -141,6 +141,11 @@ class Program:
         if (os.path.exists(self.vfile)):
             sys.stdout.write("\r[" + BAR_WIDTH * '=' + '] (done)\n')
         else:
+            # Check that the file exists - encoding to various video formats
+            # can take many hours.
+            if urllib.urlopen(self.vurl).getcode() == 404:
+                print "File not available (try \"-f ts\" for raw MPEG stream)."
+                return
             try:
                 cursor_hide()
                 urllib.urlretrieve(self.vurl, self.vfile + TMP_SUFFIX, \
@@ -148,7 +153,7 @@ class Program:
                 cursor_unhide()
                 if (os.path.exists(self.vfile + TMP_SUFFIX)):
                     shutil.move(self.vfile+TMP_SUFFIX, self.vfile)
-		print "\n"
+                print "\n"
             except KeyboardInterrupt:
                 cursor_unhide()
                 print "\nDownload interrupted"
