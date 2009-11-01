@@ -764,13 +764,15 @@ def main(argv):
         exit(0)
 
     # Playlist
+    if alpha:
+        plurl = 'http://%s/feed/playlist/%s.rss' % \
+        (ASITE, formatstring(settings['format']))
+    else:
+        plurl = "http://%s/netpvr/Feed?channel=Playlist&format=%s&extension=itunes" % \
+        (SITE, settings['format'])
     if target['list']:
-        if alpha:
-            feed = 'http://%s/feed/playlist/%s.rss' % \
-            (ASITE, formatstring(settings['format']))
-        else:
-            feed = "http://%s/netpvr/Feed?channel=Playlist&format=%s&extension=itunes" % \
-            (SITE, settings['format'])
+        feed = plurl
+        
     # Seasons
     elif target['seasons']:
         if alpha:
@@ -822,10 +824,25 @@ def main(argv):
 
     # Show mode
     elif mode['show']: # None of show[''] variables are set
+        if target['list']:
+            pltargets = targets
+        else:
+            pltargets = feedreader_alpha(plurl) if alpha else feedreader(plurl)
+        pl_ids = []
+        # Get list of program IDs of the playlist
+        [pl_ids.append(t.getid()) for t in pltargets]
         if debug:
             print "SHOW " + targets[-1].getid()
         for t in targets:
-            box = '[*] ' if t.downloaded() else '[ ] '
+            box = ''
+            if t.getid() in pl_ids:
+                box += '[L'
+            else:
+                box += '[ '
+            if t.downloaded():
+                box += '*] '
+            else:
+                box += ' ] '
             print box + t.longlabel()
     # Get mode
     elif mode['get'] and len(targets) > 0:
