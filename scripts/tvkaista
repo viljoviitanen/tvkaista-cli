@@ -154,6 +154,7 @@ class Program:
                 return
             try:
                 cursor_hide()
+                timer.reset()
                 urllib.urlretrieve(self.vurl, self.vfile + TMP_SUFFIX, \
                 reporthook=progressbar)
                 cursor_unhide()
