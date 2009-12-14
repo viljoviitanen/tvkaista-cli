@@ -51,15 +51,21 @@ SUB_SUFFIX = '.srt'
 VPLAYER = 'mplayer'
 # Progress bar width
 BAR_WIDTH = 30
+# Progress bar delay bitmask (sensible values=7,15,31,63)
+PROGRESS_DELAY_BITMASK = 15
+# Default download limit in bytes/sec, 0=no limit
+DOWNLOAD_LIMIT = 0
+# File system character set
+FILECHARSET = 'utf-8'
+# Terminal character set
+TERMCHARSET = 'utf-8'
 
 SITE = 'www.tvkaista.fi'
 ASITE = 'alpha.tvkaista.fi'
 
-
 # HTTP headers
 headers = {'Content-type': 'application/x-www-form-urlencoded'}
 http = httplib2.Http()
-settings = {}
 
 settings = {}
 att = ['username','password','format','downloaddir']
@@ -68,12 +74,13 @@ verbose = False
 debug = False
 prompt = False
 show = False
-alpha = False
+alpha = True
 
 target = {}
 target['list'] = False
 target['seasons'] = False
 target['search'] = False
+target['storage'] = False
 
 # Print list of programs by default
 mode = {}
@@ -123,8 +130,10 @@ class Program:
                     SUB_SUFFIX
         self.vfile = self.dir + "/" + ptit.replace(" ","_") + "_" + \
                      self.date + "_" + pid + "." + filesuffix(settings['format'])
+        self.vfile = self.vfile.encode(FILECHARSET)
         self.sfile = self.dir + "/" + ptit.replace(" ","_") + "_" + \
                      self.date + "_" + pid + "" + SUB_SUFFIX
+        self.sfile = self.sfile.encode(FILECHARSET)
 
     def is_available(self):
         """ 
@@ -141,9 +150,9 @@ class Program:
             try:
                 os.makedirs(self.dir)
             except OSError:
-                print "Could not write to %" % self.dir
+                print "Could not write to %s" % self.dir
                 exit(1)
-        print self.label()
+        print self.label().encode(TERMCHARSET)
         if (os.path.exists(self.vfile)):
             sys.stdout.write("\r[" + BAR_WIDTH * '=' + '] (done)\n')
         else:
@@ -230,6 +239,7 @@ def usage():
     print " list              playlist"
     print " seasons           seasons of favourites"
     print " search [term]     search for programs (default)"
+    print " storage           storage"
     print ""
     print "Options:" 
     print "  -h --help        show this message"
@@ -240,7 +250,7 @@ def usage():
     print "  -p               password"
     print "  -f               video format (iTunes/flv/h264/ts/help)"
     print "  -d               download directory"
-    print "  --alpha          use alpha.tvkaista.fi"
+    print "  --limit          download limit in kbytes/sec"
     print ""
 
 # List available video formats.
@@ -457,7 +467,7 @@ def feedreader_alpha(feed):
 	      .findall(plin)[0]
         program = Program(pid,ptit,plen,pdt)
         if (prompt and not program.downloaded()):
-            print program.label()
+            print program.label().encode(TERMCHARSET)
         if (prompt and raw_input('Download (Y/n) ') == 'n'):
             continue
         ret.append(program)
@@ -557,6 +567,8 @@ def progressbar(count, blockSize, totalSize):
     """
     Progress bar function for monitoring downloads.
     """
+    if (count & PROGRESS_DELAY_BITMASK != 0):
+        return
     if (totalSize > 0):
         percent = int(count * blockSize * 100 / totalSize)
         blocks = int(count * blockSize * BAR_WIDTH / totalSize)
@@ -566,7 +578,12 @@ def progressbar(count, blockSize, totalSize):
     sys.stdout.write("\r[" + blocks * "=" + (BAR_WIDTH - blocks) * ' ' + \
 		     "] " + "%02d%% " % percent)
     sys.stdout.write('of %s ' % dataformat(totalSize))
-    bps_speed = count * blockSize / timer.gettime()
+    elapsed=timer.gettime()
+    bps_speed = count * blockSize / elapsed
+    if DOWNLOAD_LIMIT > 0 and bps_speed > DOWNLOAD_LIMIT:
+        sleeptime=(min( 5.0, float((count*blockSize)/DOWNLOAD_LIMIT - elapsed)))
+        if sleeptime>0:
+            time.sleep(sleeptime)
     sys.stdout.write('at %s/s ' % dataformat(bps_speed))
     if bps_speed > 0:
         eta = (totalSize - count * blockSize) / (bps_speed)
@@ -624,6 +641,7 @@ def main(argv):
     global target_seasons
     global target_search
     global target
+    global DOWNLOAD_LIMIT
 
     timer = Timer()
     exp_settings = {}
@@ -632,7 +650,7 @@ def main(argv):
     try:
         opts, args = getopt.getopt(argv, "hvpf:u:p:d:",["help","verbose",\
                      "debug","prompt","format=","username=","password=",\
-                     "downloaddir=","alpha"])
+                     "downloaddir=","alpha","limit="])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
@@ -657,6 +675,8 @@ def main(argv):
             prompt = True
         if (opt == "--alpha"):
             alpha = True
+        if (opt == "--limit"):
+            DOWNLOAD_LIMIT = 1024*int(arg)
 
     if len(args) == 0:
         usage()
@@ -774,6 +794,17 @@ def main(argv):
     if target['list']:
         feed = plurl
         
+    # Storage
+    if alpha:
+        sturl = 'http://%s/feed/storage/%s.rss' % \
+        (ASITE, formatstring(settings['format']))
+    else:
+        print "Storage target only supported on alpha"
+        exit(1)
+        
+    if target['storage']:
+        feed = sturl
+        
     # Seasons
     elif target['seasons']:
         if alpha:
@@ -844,7 +875,7 @@ def main(argv):
                 box += '*] '
             else:
                 box += ' ] '
-            print box + t.longlabel()
+            print box + t.longlabel().encode(TERMCHARSET)
     # Get mode
     elif mode['get'] and len(targets) > 0:
         if debug:
