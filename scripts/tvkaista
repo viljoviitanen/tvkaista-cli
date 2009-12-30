@@ -426,8 +426,8 @@ def feedreader(feed):
         program = Program(pid,ptit,0,pdt)
         if (prompt and not program.downloaded()):
             print program.label()
-        if (prompt and raw_input(command_name() + ' (Y/n) ') == 'n'):
-            continue
+            if (prompt and raw_input(command_name() + ' (Y/n) ') == 'n'):
+                continue
         ret.append(program)
     dom.unlink()
     return ret
@@ -468,8 +468,8 @@ def feedreader_alpha(feed):
         program = Program(pid,ptit,plen,pdt)
         if (prompt and not program.downloaded()):
             print program.label().encode(TERMCHARSET)
-        if (prompt and raw_input('Download (Y/n) ') == 'n'):
-            continue
+            if (prompt and raw_input('Download (Y/n) ') == 'n'):
+                continue
         ret.append(program)
     dom.unlink()
     return ret
