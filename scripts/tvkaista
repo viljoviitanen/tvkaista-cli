@@ -5,7 +5,7 @@
 #
 # http://code.google.com/p/tvkaista-cli/
 #
-# Copyright (c) 2009 Matti Pöllä
+# Copyright (c) 2009-2010 Matti Pöllä
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -20,7 +20,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 __author__ = "Matti Pöllä"
-__copyright__ = "Copyright 2009, Matti Pöllä"
+__copyright__ = "Copyright 2009-2010, Matti Pöllä"
 __license__ = "GPL"
 __email__ = "mpo@iki.fi"
 __version__ = "$Revision$"
