@@ -463,7 +463,7 @@ def feedreader_alpha(feed):
         plin= i.getElementsByTagName('link')[0].childNodes[0].nodeValue
         pdt = time.mktime(time.strptime(i.getElementsByTagName('pubDate')[0]\
 	      .childNodes[0].nodeValue, "%a, %d %b %Y %H:%M:%S +0000"))
-        pid = re.compile('http://www.tvkaista.fi/search/[?]id=(\d+)')\
+        pid = re.compile('http://alpha.tvkaista.fi/search/[?]findid=(\d+)')\
 	      .findall(plin)[0]
         program = Program(pid,ptit,plen,pdt)
         if (prompt and not program.downloaded()):
