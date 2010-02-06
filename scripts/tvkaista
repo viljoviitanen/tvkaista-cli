@@ -63,7 +63,6 @@ FILECHARSET = 'utf-8'
 # Terminal character set
 TERMCHARSET = 'utf-8'
 
-SITE = 'www.tvkaista.fi'
 ASITE = 'alpha.tvkaista.fi'
 
 # HTTP headers
@@ -77,7 +76,6 @@ verbose = False
 debug = False
 prompt = False
 show = False
-alpha = True
 getthumb = True
 
 target = {}
@@ -122,10 +120,7 @@ class Program:
         month = time.strftime("%m",time.localtime(pdt))
         self.time = "klo " + time.strftime("%H:%M",time.localtime(pdt))
         self.dir = settings['downloaddir'] + "/" + year + "/" + month
-        if (alpha):
-            urlbase = "@" + ASITE + "/recordings/download/"
-        else:
-            urlbase = "@" + SITE + "/netpvr/Download/"
+        urlbase = "@" + ASITE + "/recordings/download/"
         self.vurl = "http://" + settings['username'] + ":" + \
                     settings['password'] + urlbase+pid + "." + \
                     formatstring(settings['format'])
@@ -408,54 +403,11 @@ def command_name():
     if mode['play']:
         return "Play"
 
-# Download the list of favorite recordings and build a list of download
-# targets. Original code from tvkaistaforxbmc plugin
-def feedreader(feed):
-    """
-    Build a list of recordings from a RSS feed.
-    """
-    if debug:
-        print "FEED " + feed
-    targets = []
-    passman = urllib2.HTTPPasswordMgrWithDefaultRealm()
-    passman.add_password(None, feed, settings['username'], \
-			 settings['password'])
-    opener = urllib2.build_opener(urllib2.HTTPBasicAuthHandler(passman))
-    urllib2.install_opener(opener)
-    try:
-        content = urllib2.urlopen(feed).read()
-    except(urllib2.HTTPError):
-        print "HTTP 404 Error: " + feed
-        exit(1)
-    dom = minidom.parseString(content)
-    items = dom.getElementsByTagName('item')
-    ret = []
-    for i in items:
-        ptit = i.getElementsByTagName('title')[0].childNodes[0].nodeValue
-        pgui= i.getElementsByTagName('guid')[0].childNodes[0].nodeValue
-        # TODO: Handle DST more gracefully than this
-        try:
-            pdt = time.mktime(time.strptime(i.getElementsByTagName('pubDate')\
-                  [0].childNodes[0].nodeValue, "%a, %d %b %Y %H:%M:%S +0200"))
-        except(ValueError):
-            pdt = time.mktime(time.strptime(i.getElementsByTagName('pubDate')\
-                  [0].childNodes[0].nodeValue, "%a, %d %b %Y %H:%M:%S +0300"))
-        pid = re.compile('http://' + SITE + '/netpvr/Search[?]id=(\d+)')\
-	      .findall(pgui)[0]
-        program = Program(pid,ptit,0,pdt)
-        if (prompt and not program.downloaded()):
-            print program.label()
-            if (prompt and raw_input(command_name() + ' (Y/n) ') == 'n'):
-                continue
-        ret.append(program)
-    dom.unlink()
-    return ret
-
 # Parse a list of download targets from a RSS file into a list of
 # downloadable objects
 def feedreader_alpha(feed):
     """
-    Build a list of recordings from a RSS feed (alpha version).
+    Build a list of recordings from a RSS feed.
     """
     targets = []
     passman = urllib2.HTTPPasswordMgrWithDefaultRealm()
@@ -493,18 +445,6 @@ def feedreader_alpha(feed):
     dom.unlink()
     return ret
 
-# Login to tvkaista.fi 
-# Required for editing playlist
-def login():
-    loginurl = 'http://' + SITE + '/netpvr/Login'
-    body = {'action': 'login', 'username': settings['username'], \
-            'password': settings['password'], 'rememberme':'on'}
-    global headers
-    headers = {'Content-type': 'application/x-www-form-urlencoded'}
-    response, content = http.request(loginurl, 'POST', headers=headers, \
-                        body=urllib.urlencode(body))
-    return response['set-cookie']
-
 # Login to alpha.tvkaista.fi 
 def login_alpha():
     loginurl = 'http://' + ASITE + '/login/'
@@ -515,15 +455,6 @@ def login_alpha():
     response, content = http.request(loginurl, 'POST', headers=headers, \
                         body=urllib.urlencode(body))
     return response['set-cookie']
-
-# Add/delete items in the playlist.
-def editlist(action,idn):
-    headers['Cookie'] = login()
-    if action == 'add':
-        url = "http://%s/netpvr/Playlist?action=add&id=%s" % (SITE, idn)
-    elif action == 'del':
-        url = "http://%s/netpvr/Playlist?action=remove&id=%s" % (SITE, idn)
-    response, content = http.request(url, 'GET', headers=headers)
 
 # Add/delete items in the playlist for alpha site.
 def editlist_alpha(action,idn):
@@ -656,7 +587,6 @@ def main(argv):
     global show
     global settings
     global timer
-    global alpha
     global target_seasons
     global target_search
     global target
@@ -669,7 +599,7 @@ def main(argv):
     try:
         opts, args = getopt.getopt(argv, "hvpf:u:p:d:",["help","verbose",\
                      "debug","prompt","format=","username=","password=",\
-                     "downloaddir=","alpha","limit="])
+                     "downloaddir=","limit="])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
@@ -692,8 +622,6 @@ def main(argv):
             debug = True
         if (opt == "--prompt"):
             prompt = True
-        if (opt == "--alpha"):
-            alpha = True
         if (opt == "--limit"):
             DOWNLOAD_LIMIT = 1024*int(arg)
 
@@ -778,24 +706,14 @@ def main(argv):
 
     # Add/del mode
     if mode['add'] and len(target_ids) > 0:
-        if alpha:
-            if debug:
-                print "ADD: " + " ".join(target_ids)
-            [editlist_alpha("add",t) for t in target_ids]
-        else:
-            if debug:
-                print "ADD: " + " ".join(target_ids)
-            [editlist("add",t) for t in target_ids]
+        if debug:
+            print "ADD: " + " ".join(target_ids)
+        [editlist_alpha("add",t) for t in target_ids]
         exit(0)
     if mode['del']:
-        if alpha:
-            if debug:
-                print "DEL: " + " ".join(target_ids)
-            [editlist_alpha("del",t) for t in target_ids]
-        else:
-            if debug:
-                print "DEL: " + " ".join(target_ids)
-            [editlist("del",t) for t in target_ids]
+        if debug:
+            print "DEL: " + " ".join(target_ids)
+        [editlist_alpha("del",t) for t in target_ids]
         exit(0)
         
     # Seasonadd/seasondel mode
@@ -804,46 +722,35 @@ def main(argv):
         exit(0)
 
     # Playlist
-    if alpha:
-        plurl = 'http://%s/feed/playlist/%s.rss' % \
-        (ASITE, formatstring(settings['format']))
-    else:
-        plurl = "http://%s/netpvr/Feed?channel=Playlist&format=%s&extension=itunes" % \
-        (SITE, settings['format'])
+    plurl = 'http://%s/feed/playlist/%s.rss' % \
+    (ASITE, formatstring(settings['format']))
     if target['list']:
         feed = plurl
         
     # Storage
-    if alpha:
-        sturl = 'http://%s/feed/storage/%s.rss' % \
-        (ASITE, formatstring(settings['format']))
-    else:
-        print "Storage target only supported on alpha"
-        exit(1)
+    sturl = 'http://%s/feed/storage/%s.rss' % \
+    (ASITE, formatstring(settings['format']))
         
     if target['storage']:
         feed = sturl
         
     # Seasons
     elif target['seasons']:
-        if alpha:
-            feed = 'http://%s/feed/seasonpasses/*/%s.rss' % \
-            (ASITE, formatstring(settings['format']))
-        else:
-            feed = 'http://%s/netpvr/Feed?channel=seasonpass&format=%s&extension=itunes' % \
-            (SITE, formatstring(settings['format']))
+        feed = 'http://%s/feed/seasonpasses/*/%s.rss' % \
+        (ASITE, formatstring(settings['format']))
     # Search
     elif target['search']:
-        if alpha:
-            feed = "http://" + ASITE + "/feed/search/title/" + \
-            urllib.urlencode({'':search_terms})[1:] + "/" + \
-            formatstring(settings['format'])+".rss"
-        else:
-            feed = "http://" + SITE + "/netpvr/Feed?channel=search&" + \
-            urllib.urlencode({'search':search_terms}) + \
-            "&format=" + formatstring(settings['format']) + "&extension=rss"
+        feed = "http://" + ASITE + "/feed/search/title/" + \
+        urllib.urlencode({'':search_terms})[1:] + "/" + \
+        formatstring(settings['format'])+".rss"
 
-    targets = feedreader_alpha(feed) if alpha else feedreader(feed)
+    # Exception: program id numbers have been specified without
+    # an action to perform.  
+    if len(target_ids) > 0 and mode['show']:
+        print "Please specify what to do with program id numbers (add/del)."
+        exit(0)
+
+    targets = feedreader_alpha(feed)
     if len(targets) == 0:
         print "No targets found."
         exit(0)
@@ -865,12 +772,8 @@ def main(argv):
     if mode['play']:
         if debug:
             print "PLAY " + targets[-1].getid()
-        if alpha:
-            purl = 'http://%s/recordings/play/%s%s' % \
-                   (ASITE, targets[-1].getid(), play_url_suffix_alpha(settings['format']))
-        else:
-            purl = 'http://%s/netpvr/Recordings?action=play&id=%s&format=%s' % \
-                   (SITE, targets[-1].getid(), formatstring(settings['format']))
+        purl = 'http://%s/recordings/play/%s%s' % \
+               (ASITE, targets[-1].getid(), play_url_suffix_alpha(settings['format']))
         webbrowser.open(purl)
 
     # Show mode
@@ -878,7 +781,7 @@ def main(argv):
         if target['list']:
             pltargets = targets
         else:
-            pltargets = feedreader_alpha(plurl) if alpha else feedreader(plurl)
+            pltargets = feedreader_alpha(plurl)
         pl_ids = []
         # Get list of program IDs of the playlist
         [pl_ids.append(t.getid()) for t in pltargets]
