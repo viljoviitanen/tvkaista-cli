@@ -35,7 +35,6 @@ import getopt
 import shutil
 import time
 import datetime
-import httplib2
 import webbrowser
 
 from string import split, replace, find
@@ -67,7 +66,6 @@ ASITE = 'alpha.tvkaista.fi'
 
 # HTTP headers
 headers = {'Content-type': 'application/x-www-form-urlencoded'}
-http = httplib2.Http()
 
 settings = {}
 att = ['username','password','format','downloaddir']
