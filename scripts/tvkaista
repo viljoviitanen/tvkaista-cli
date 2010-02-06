@@ -47,6 +47,9 @@ from subprocess import call
 TMP_SUFFIX = '.part'
 # File suffix for subtitle files
 SUB_SUFFIX = '.srt'
+# File suffix for thumbnail files
+# use '.tbn' for Xbox Media Center (XBMC)
+THUMB_SUFFIX = '.jpg'
 # Video player to stream with
 VPLAYER = 'mplayer'
 # Progress bar width
@@ -75,6 +78,7 @@ debug = False
 prompt = False
 show = False
 alpha = True
+getthumb = True
 
 target = {}
 target['list'] = False
@@ -128,12 +132,17 @@ class Program:
         self.surl = "http://" + settings['username'] + ":" + \
                     settings['password'] + urlbase+pid + "" + \
                     SUB_SUFFIX
+        self.turl = "http://" + settings['username'] + ":" + \
+                    settings['password'] + "@" + ASITE + "/feed/thumbnails/" + pid + ".jpg"
         self.vfile = self.dir + "/" + ptit.replace(" ","_") + "_" + \
                      self.date + "_" + pid + "." + filesuffix(settings['format'])
         self.vfile = self.vfile.encode(FILECHARSET)
         self.sfile = self.dir + "/" + ptit.replace(" ","_") + "_" + \
                      self.date + "_" + pid + "" + SUB_SUFFIX
         self.sfile = self.sfile.encode(FILECHARSET)
+        self.tfile = self.dir + "/" + ptit.replace(" ","_") + "_" + \
+                     self.date + "_" + pid + "" + THUMB_SUFFIX
+        self.tfile = self.tfile.encode(FILECHARSET)
 
     def is_available(self):
         """ 
@@ -175,7 +184,7 @@ class Program:
                 print "\nDownload interrupted"
                 exit(0)
         # Download subtitle file. Remove if empty.
-        if (not os.path.exists(self.sfile)):
+        if (not os.path.exists(self.sfile) and urllib.urlopen(self.surl).getcode() == 200):
             try:
                 urllib.urlretrieve(self.surl, self.sfile + TMP_SUFFIX)
                 if (os.path.exists(self.sfile + TMP_SUFFIX)):
@@ -185,6 +194,16 @@ class Program:
                 exit(0)
             if (os.stat(self.sfile).st_size == 0):
                 os.remove(self.sfile)
+        # Download thumbnail file
+        if (not os.path.exists(self.tfile) and getthumb and urllib.urlopen(self.turl).getcode() == 200):
+            try:
+                urllib.urlretrieve(self.turl, self.tfile + TMP_SUFFIX)
+                if (os.path.exists(self.tfile + TMP_SUFFIX)):
+                    shutil.move(self.tfile + TMP_SUFFIX, self.tfile)
+            except KeyboardInterrupt:
+                print "\nDownload interrupted"
+                exit(0)
+
 
     def downloaded(self):
         """
