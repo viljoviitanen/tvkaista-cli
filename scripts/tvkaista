@@ -34,10 +34,9 @@ import sys
 import getopt
 import shutil
 import time
-import datetime
+import httplib2
 import webbrowser
 
-from string import split, replace, find
 from math import floor
 from xml.dom import minidom
 from subprocess import call
@@ -66,10 +65,11 @@ ASITE = 'alpha.tvkaista.fi'
 
 # HTTP headers
 headers = {'Content-type': 'application/x-www-form-urlencoded'}
+http = httplib2.Http()
 
 settings = {}
-att = ['username','password','format','downloaddir']
-formats = ['iTunes','flv','h264','ts']
+att = ['username', 'password', 'format', 'downloaddir']
+formats = ['iTunes', 'flv', 'h264', 'ts']
 verbose = False
 debug = False
 prompt = False
@@ -109,14 +109,14 @@ class Program:
     """
     The Programm class encapsulates a downloadable item.
     """
-    def __init__(self,pid,ptit,plen,pdt):
+    def __init__(self, pid, ptit, plen, pdt):
         self.idn = pid
         self.length = int(plen)
         self.title = ptit
-        self.date = time.strftime("%Y-%m-%d",time.localtime(pdt))
-        year = time.strftime("%Y",time.localtime(pdt))
-        month = time.strftime("%m",time.localtime(pdt))
-        self.time = "klo " + time.strftime("%H:%M",time.localtime(pdt))
+        self.date = time.strftime("%Y-%m-%d", time.localtime(pdt))
+        year = time.strftime("%Y", time.localtime(pdt))
+        month = time.strftime("%m", time.localtime(pdt))
+        self.time = "klo " + time.strftime("%H:%M", time.localtime(pdt))
         self.dir = settings['downloaddir'] + "/" + year + "/" + month
         urlbase = "@" + ASITE + "/recordings/download/"
         self.vurl = "http://" + settings['username'] + ":" + \
@@ -141,7 +141,11 @@ class Program:
         """ 
         Check file availability using the HTTP response code
         """
-        return (urllib.urlopen(self.vurl).getcode() == 200)
+        try:
+            return (urllib.urlopen(self.vurl).getcode() == 200)
+        except AttributeError:
+            print "Warning: could not check file availability"
+            return True
 
     def download(self):
         """
@@ -204,13 +208,13 @@ class Program:
         """
         return True if os.path.exists(self.vfile) else False
 
-    def label(self,showid=False):
+    def label(self, showid=False):
         """
         A short description about the recording.
         """
         return self.date + " " +  self.time + " " + self.title
         
-    def longlabel(self,showid=False):
+    def longlabel(self, showid=False):
         """
         A longer description about the recording.
         """
@@ -407,7 +411,6 @@ def feedreader_alpha(feed):
     """
     Build a list of recordings from a RSS feed.
     """
-    targets = []
     passman = urllib2.HTTPPasswordMgrWithDefaultRealm()
     passman.add_password(None, feed, settings['username'], \
 			 settings['password'])
@@ -429,12 +432,12 @@ def feedreader_alpha(feed):
 		   attributes['length'].value
         except:
             plen = 0
-        plin= i.getElementsByTagName('link')[0].childNodes[0].nodeValue
+        plin = i.getElementsByTagName('link')[0].childNodes[0].nodeValue
         pdt = time.mktime(time.strptime(i.getElementsByTagName('pubDate')[0]\
 	      .childNodes[0].nodeValue, "%a, %d %b %Y %H:%M:%S +0000"))
         pid = re.compile('http://alpha.tvkaista.fi/search/[?]findid=(\d+)')\
 	      .findall(plin)[0]
-        program = Program(pid,ptit,plen,pdt)
+        program = Program(pid, ptit, plen, pdt)
         if (prompt and not program.downloaded()):
             print program.label().encode(TERMCHARSET)
             if (prompt and raw_input('Download (Y/n) ') == 'n'):
@@ -455,7 +458,7 @@ def login_alpha():
     return response['set-cookie']
 
 # Add/delete items in the playlist for alpha site.
-def editlist_alpha(action,idn):
+def editlist_alpha(action, idn):
     """
     Edit (add/remove) playlist.
     """
@@ -479,8 +482,7 @@ def editlist_alpha(action,idn):
         'batchId':'1'
     }
     try:
-        content = urllib2.urlopen(url,urllib.urlencode(postdata)).read()
-        #print content
+        content = urllib2.urlopen(url, urllib.urlencode(postdata)).read()
     except Error:
         print "Could not update favourites."
         exit(1)
@@ -494,7 +496,7 @@ def dataformat(b):
         return "%d bytes" % b
     b = b / 1024
     if (b < 1024):
-       return "%.2f KiB" % b
+        return "%.2f KiB" % b
     b = b / 1024
     if (b < 1024):
         return "%.2f MiB" % b
@@ -508,7 +510,7 @@ def timeformat(s):
     s = s - h * 3600
     m = floor(s / 60)
     s = s - m * 60
-    return "%02d:%02d:%02d" % (h,m,s)
+    return "%02d:%02d:%02d" % (h, m, s)
 
 # Progress bar display for urllib.urlretrieve function.
 def progressbar(count, blockSize, totalSize):
@@ -526,11 +528,11 @@ def progressbar(count, blockSize, totalSize):
     sys.stdout.write("\r[" + blocks * "=" + (BAR_WIDTH - blocks) * ' ' + \
 		     "] " + "%02d%% " % percent)
     sys.stdout.write('of %s ' % dataformat(totalSize))
-    elapsed=timer.gettime()
+    elapsed = timer.gettime()
     bps_speed = count * blockSize / elapsed
     if DOWNLOAD_LIMIT > 0 and bps_speed > DOWNLOAD_LIMIT:
-        sleeptime=(min( 5.0, float((count*blockSize)/DOWNLOAD_LIMIT - elapsed)))
-        if sleeptime>0:
+        sleeptime = (min( 5.0, float((count*blockSize)/DOWNLOAD_LIMIT - elapsed)))
+        if sleeptime > 0:
             time.sleep(sleeptime)
     sys.stdout.write('at %s/s ' % dataformat(bps_speed))
     if bps_speed > 0:
@@ -546,7 +548,7 @@ def getconffile():
     # TODO: OS specific selection of configuration file name.
     return os.getenv("HOME") + "/.tvkaista-cli"
 
-def valid_settings(s,critical):
+def valid_settings(s, critical):
     """
     Confirm that all required settings have been defined.
     """
@@ -582,11 +584,8 @@ def main(argv):
     global verbose
     global debug
     global prompt
-    global show
     global settings
     global timer
-    global target_seasons
-    global target_search
     global target
     global DOWNLOAD_LIMIT
 
@@ -595,9 +594,9 @@ def main(argv):
 
     # Processing of command line options using getopt.
     try:
-        opts, args = getopt.getopt(argv, "hvpf:u:p:d:",["help","verbose",\
-                     "debug","prompt","format=","username=","password=",\
-                     "downloaddir=","limit="])
+        opts, args = getopt.getopt(argv, "hvpf:u:p:d:", ["help", "verbose", \
+                     "debug", "prompt", "format=", "username=", "password=", \
+                     "downloaddir=", "limit="])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
@@ -605,7 +604,6 @@ def main(argv):
         if opt in ("-h", "--help"):
             usage()
             sys.exit()
-            mode_stream = True
         if opt in ("-f", "--format"):
             exp_settings['format'] = arg
         if opt in ("-u", "--username"):
@@ -706,12 +704,12 @@ def main(argv):
     if mode['add'] and len(target_ids) > 0:
         if debug:
             print "ADD: " + " ".join(target_ids)
-        [editlist_alpha("add",t) for t in target_ids]
+        [editlist_alpha("add", t) for t in target_ids]
         exit(0)
     if mode['del']:
         if debug:
             print "DEL: " + " ".join(target_ids)
-        [editlist_alpha("del",t) for t in target_ids]
+        [editlist_alpha("del", t) for t in target_ids]
         exit(0)
         
     # Seasonadd/seasondel mode
