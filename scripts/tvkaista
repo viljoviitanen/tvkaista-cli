@@ -92,6 +92,7 @@ mode['seasondel'] = False
 mode['get'] = False
 mode['stream'] = False
 mode['play'] = False
+mode['summary'] = False
 
 class Timer:
     """
@@ -225,6 +226,9 @@ class Program:
         
     def getid(self):
         return self.idn
+
+    def getsize(self):
+        return self.length
 
 def cursor_hide():
     """
@@ -500,7 +504,7 @@ def dataformat(b):
     b = b / 1024
     if (b < 1024):
         return "%.2f MiB" % b
-    b = b / 1024
+    b = float(float(b) / 1024.0)
     return "%.2f GiB" % b
 
 def timeformat(s):
@@ -575,7 +579,26 @@ def play_url_suffix_alpha(format):
       'flv' :   '/4/1000000',
       'h264':   '/3/2000000',
       'ts':     '/0/8000000'
-    }[format] 
+    }[format]
+
+def print_summary():
+    plurl = 'http://%s/feed/playlist/%s.rss' % \
+            (ASITE, formatstring(settings['format']))
+    dl_togo = 0
+    dl_done = 0
+    plcount = 0
+    for i in feedreader_alpha(plurl):
+        plcount += 1
+        if i.downloaded():
+            dl_done += i.getsize()
+        else:
+            dl_togo += i.getsize()
+    if dl_togo == 0:
+        print "Download complete."
+    else:
+        perc = (100 * float(dl_done)/float(dl_done+dl_togo))
+        print "Playlist: %s to be downloaded (%02d %% of %s complete) " % \
+        (dataformat(dl_togo), perc, dataformat(dl_togo + dl_done))
 
 # Main program
 def main(argv):
@@ -641,12 +664,12 @@ def main(argv):
     target_ids = re.findall('([0-9]{6,7})', " ".join(args))
 
     # No target given
-    if len(args) == 0:
+    if len(args) == 0 and not mode['summary']:
         usage()
         exit(0)
 
     # Parse target
-    if args[0] in target.keys():
+    if not mode['summary'] and args[0] in target.keys():
         target[args[0]] = True
         args.pop(0)
         if debug:
@@ -658,8 +681,10 @@ def main(argv):
             print "TARGET: IDs " + ",".join(target_ids)
     # Default to search
     else:
+        if debug:
+            print "TARGET: search (default)"
         target['search'] = True
-        if args[0] == 'search':
+        if not mode['summary'] and args[0] == 'search':
             args.pop(0)
     search_terms = " ".join(args)
     if debug:
@@ -691,7 +716,11 @@ def main(argv):
     if sum(mode.values()) > 1:
         print "Only one of show/get/stream/play/add/del is allowed."
         sys.exit(0)
-        
+
+    if mode['summary']:
+        print_summary()
+        exit(0)
+
     # If no mode if specified, select 'show'
     elif sum(mode.values()) == 0:
         mode['show'] = True
