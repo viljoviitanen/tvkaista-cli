@@ -700,7 +700,7 @@ def main(argv):
         print "Only one of target is allowed."
         sys.exit(0)
 
-    # Add/del mode
+    # Add/del using program id numbers
     if mode['add'] and len(target_ids) > 0:
         if debug:
             print "ADD: " + " ".join(target_ids)
@@ -712,6 +712,26 @@ def main(argv):
         [editlist_alpha("del", t) for t in target_ids]
         exit(0)
         
+    # Add to playlist using search terms
+    if mode['add'] and len(target_ids) == 0:
+        plurl = 'http://%s/feed/playlist/%s.rss' % \
+                (ASITE, formatstring(settings['format']))
+        plids = []
+        [plids.append(i.getid()) for i in feedreader_alpha(plurl)]
+        if debug:
+            print "ADD: (search terms) ".join(search_terms)
+        feed = "http://" + ASITE + "/feed/search/title/" + \
+               urllib.urlencode({'':search_terms})[1:] + "/" + \
+               formatstring(settings['format'])+".rss"
+        targets = feedreader_alpha(feed)    
+        for t in targets:
+            if t.getid() not in plids:
+                print t.longlabel().encode(TERMCHARSET) 
+                if raw_input('Add to list (Y/n) ') in ['n', 'e']:
+                    continue
+                editlist_alpha("add", t.getid())
+        exit(0)
+
     # Seasonadd/seasondel mode
     if mode['seasonadd'] or mode['seasondel']:
         print "Not implemented yet."
