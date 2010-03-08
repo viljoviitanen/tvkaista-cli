@@ -34,8 +34,15 @@ import sys
 import getopt
 import shutil
 import time
-import httplib2
 import webbrowser
+# Tvkaista-cli currently depends on httplib2 but easy_install fails
+# to install httplib2 (resulting in HTTP error 404).
+try:
+    import httplib2
+except:
+    print "httplib2 is required to run this script. On Debian-based" 
+    print "systems run 'sudo apt-get install python-httplib2'."
+    exit(1)
 
 from math import floor
 from xml.dom import minidom
