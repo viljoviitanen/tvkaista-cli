@@ -429,6 +429,7 @@ def feedreader_alpha(feed):
     urllib2.install_opener(opener)
     try:
         content = urllib2.urlopen(feed).read()
+        #print content
     except(urllib2.HTTPError):
         print "HTTP 404 Error: " + feed
         exit(1)
@@ -444,8 +445,9 @@ def feedreader_alpha(feed):
         except:
             plen = 0
         plin = i.getElementsByTagName('link')[0].childNodes[0].nodeValue
+        # Tvkaista attribute 'pubDate is in UTF; convert it to EET
         pdt = time.mktime(time.strptime(i.getElementsByTagName('pubDate')[0]\
-	      .childNodes[0].nodeValue, "%a, %d %b %Y %H:%M:%S +0000"))
+	      .childNodes[0].nodeValue, "%a, %d %b %Y %H:%M:%S +0000")) + 3*60*60
         pid = re.compile('http://alpha.tvkaista.fi/search/[?]findid=(\d+)')\
 	      .findall(plin)[0]
         program = Program(pid, ptit, plen, pdt)
