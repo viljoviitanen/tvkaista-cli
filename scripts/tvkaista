@@ -34,6 +34,7 @@ import sys
 import getopt
 import shutil
 import time
+import math
 import webbrowser
 # Tvkaista-cli currently depends on httplib2 but easy_install fails
 # to install httplib2 (resulting in HTTP error 404).
@@ -533,8 +534,9 @@ def progressbar(count, blockSize, totalSize):
     if (count & PROGRESS_DELAY_BITMASK != 0):
         return
     if (totalSize > 0):
-        percent = int(count * blockSize * 100 / totalSize)
-        blocks = int(count * blockSize * BAR_WIDTH / totalSize)
+        mcount = math.floor(totalSize / blockSize)
+        percent = int(math.ceil(100 * count / mcount))
+        blocks = int(math.ceil(BAR_WIDTH * count / mcount))
     else:
         percent = 0
         blocks = 0
