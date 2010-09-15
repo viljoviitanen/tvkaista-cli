@@ -83,6 +83,7 @@ debug = False
 prompt = False
 show = False
 getthumb = True
+reverse = False
 
 target = {}
 target['list'] = False
@@ -255,7 +256,7 @@ def usage():
     """
     Print instruction on how to use this program.
     """
-    print "Usage: tvkaista [-hvfupsd] command target"
+    print "Usage: tvkaista [-hvfupsdr] command target"
     print ""
     print "Commands:"
     print " show              show programs (default)"
@@ -279,6 +280,7 @@ def usage():
     print "  -f               video format (iTunes/flv/h264/ts/help)"
     print "  -d               download directory"
     print "  --limit          download limit in kbytes/sec"
+    print "  -r --reverse     list in reverse order (new to old)"
     print ""
 
 # List available video formats.
@@ -622,15 +624,16 @@ def main(argv):
     global timer
     global target
     global DOWNLOAD_LIMIT
+    global reverse
 
     timer = Timer()
     exp_settings = {}
 
     # Processing of command line options using getopt.
     try:
-        opts, args = getopt.getopt(argv, "hvpf:u:p:d:", ["help", "verbose", \
-                     "debug", "prompt", "format=", "username=", "password=", \
-                     "downloaddir=", "limit="])
+        opts, args = getopt.getopt(argv, "hvprf:u:p:d:", ["help", "verbose", \
+                     "debug", "prompt", "reverse", "format=", "username=", \
+                     "password=", "downloaddir=", "limit="])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
@@ -654,6 +657,8 @@ def main(argv):
             prompt = True
         if (opt == "--limit"):
             DOWNLOAD_LIMIT = 1024*int(arg)
+        if opt in ("-r", "--reverse"):
+            reverse = True
 
     if len(args) == 0:
         usage()
@@ -807,6 +812,11 @@ def main(argv):
         exit(0)
 
     targets = feedreader_alpha(feed)
+
+    # Flip order to new..old if needed
+    if reverse:
+        targets.reverse()
+
     if len(targets) == 0:
         print "No targets found."
         exit(0)
