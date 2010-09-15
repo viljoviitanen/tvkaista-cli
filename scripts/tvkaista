@@ -464,8 +464,11 @@ def feedreader_alpha(feed):
         program = Program(pid, ptit, plen, pdt)
         if (prompt and not program.downloaded()):
             print program.label().encode(TERMCHARSET)
-            if (prompt and raw_input('Download (Y/n) ') == 'n'):
-                continue
+            try:
+                if (prompt and raw_input('Download (Y/n) ') == 'n'):
+                    continue
+            except KeyboardInterrupt:
+                exit(0)
         ret.append(program)
     dom.unlink()
     return ret
