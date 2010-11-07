@@ -36,6 +36,8 @@ import shutil
 import time
 import math
 import webbrowser
+import pytz
+import datetime
 # Tvkaista-cli currently depends on httplib2 but easy_install fails
 # to install httplib2 (resulting in HTTP error 404).
 try:
@@ -70,6 +72,8 @@ FILECHARSET = 'utf-8'
 TERMCHARSET = 'utf-8'
 
 ASITE = 'alpha.tvkaista.fi'
+TIMEZONE = pytz.timezone ("Europe/Helsinki")
+TIMEFORMAT = "%a, %d %b %Y %H:%M:%S +0000"
 
 # HTTP headers
 headers = {'Content-type': 'application/x-www-form-urlencoded'}
@@ -438,6 +442,7 @@ def feedreader_alpha(feed):
     except(urllib2.HTTPError):
         print "HTTP 404 Error: " + feed
         exit(1)
+
     dom = minidom.parseString(content)
     items = dom.getElementsByTagName('item')
     # Flip order if using "-r"
@@ -456,9 +461,12 @@ def feedreader_alpha(feed):
         except:
             plen = 0
         plin = i.getElementsByTagName('link')[0].childNodes[0].nodeValue
-        # Tvkaista attribute 'pubDate is in UTF; convert it to EET
-        pdt = time.mktime(time.strptime(i.getElementsByTagName('pubDate')[0]\
-	      .childNodes[0].nodeValue, "%a, %d %b %Y %H:%M:%S +0000")) + 3*60*60
+        # Tvkaista attribute 'pubDate is in UTF; convert it to EET using pytz
+        timestr = i.getElementsByTagName('pubDate')[0].childNodes[0].nodeValue
+        tvkaistatime = datetime.datetime.strptime(timestr, TIMEFORMAT)
+        tvkaistatime = tvkaistatime.replace(tzinfo=pytz.utc)
+        pdt = time.mktime(tvkaistatime.astimezone(TIMEZONE).timetuple())
+
         pid = re.compile('http://alpha.tvkaista.fi/search/[?]findid=(\d+)')\
 	      .findall(plin)[0]
         program = Program(pid, ptit, plen, pdt)
