@@ -671,7 +671,7 @@ def main(argv):
             exp_settings['downloaddir'] = arg
         if opt in ("-v", "--verbose"):
             verbose = True
-        if opt in ("--debug"):
+        if opt == "--debug":
             debug = True
         if (opt == "--prompt"):
             prompt = True
