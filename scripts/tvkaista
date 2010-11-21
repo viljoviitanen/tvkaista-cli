@@ -23,7 +23,7 @@ __author__ = "Matti Pöllä"
 __copyright__ = "Copyright 2009-2010, Matti Pöllä"
 __license__ = "GPL"
 __email__ = "mpo@iki.fi"
-__version__ = "$Revision$"
+__version__ = "0.65"
 
 import urllib
 import urllib2
@@ -71,7 +71,7 @@ FILECHARSET = 'utf-8'
 # Terminal character set
 TERMCHARSET = 'utf-8'
 
-ASITE = 'alpha.tvkaista.fi'
+ASITE = 'www.tvkaista.fi'
 TIMEZONE = pytz.timezone ("Europe/Helsinki")
 TIMEFORMAT = "%a, %d %b %Y %H:%M:%S +0000"
 
@@ -427,7 +427,7 @@ def command_name():
 
 # Parse a list of download targets from a RSS file into a list of
 # downloadable objects
-def feedreader_alpha(feed):
+def feedreader(feed):
     """
     Build a list of recordings from a RSS feed.
     """
@@ -467,7 +467,7 @@ def feedreader_alpha(feed):
         tvkaistatime = tvkaistatime.replace(tzinfo=pytz.utc)
         pdt = time.mktime(tvkaistatime.astimezone(TIMEZONE).timetuple())
 
-        pid = re.compile('http://alpha.tvkaista.fi/search/[?]findid=(\d+)')\
+        pid = re.compile('http://www.tvkaista.fi/search/[?]findid=(\d+)')\
 	      .findall(plin)[0]
         program = Program(pid, ptit, plen, pdt)
         if (prompt and not program.downloaded()):
@@ -482,7 +482,7 @@ def feedreader_alpha(feed):
     return ret
 
 # Login to alpha.tvkaista.fi 
-def login_alpha():
+def login():
     loginurl = 'http://' + ASITE + '/login/'
     body = {'action': 'login', 'username': settings['username'], \
             'password': settings['password'], 'rememberme':'on'}
@@ -493,11 +493,11 @@ def login_alpha():
     return response['set-cookie']
 
 # Add/delete items in the playlist for alpha site.
-def editlist_alpha(action, idn):
+def editlist(action, idn):
     """
     Edit (add/remove) playlist.
     """
-    sessionid = login_alpha()
+    sessionid = login()
     sessionid = sessionid[11:43] # FIXME: Parse session id properly
     if action == 'add':
         fname = 'addToPlaylist'
@@ -605,7 +605,7 @@ def valid_settings(s, critical):
     return True
     
 # Add a format-specific suffix to play urls in alpha.tvkaista.fi
-def play_url_suffix_alpha(format):
+def play_url_suffix(format):
     return {
       'iTunes': '/3/300000',
       'flv' :   '/4/1000000',
@@ -615,11 +615,11 @@ def play_url_suffix_alpha(format):
 
 def print_summary():
     plurl = 'http://%s/feed/playlist/%s.rss' % \
-            (ASITE, formatstring(settings['format']))
+        (ASITE, formatstring(settings['format']))
     dl_togo = 0
     dl_done = 0
     plcount = 0
-    for i in feedreader_alpha(plurl):
+    for i in feedreader(plurl):
         plcount += 1
         if i.downloaded():
             dl_done += i.getsize()
@@ -775,12 +775,12 @@ def main(argv):
     if mode['add'] and len(target_ids) > 0:
         if debug:
             print "ADD: " + " ".join(target_ids)
-        [editlist_alpha("add", t) for t in target_ids]
+        [editlist("add", t) for t in target_ids]
         exit(0)
     if mode['del']:
         if debug:
             print "DEL: " + " ".join(target_ids)
-        [editlist_alpha("del", t) for t in target_ids]
+        [editlist("del", t) for t in target_ids]
         exit(0)
         
     # Add to playlist using search terms
@@ -788,19 +788,19 @@ def main(argv):
         plurl = 'http://%s/feed/playlist/%s.rss' % \
                 (ASITE, formatstring(settings['format']))
         plids = []
-        [plids.append(i.getid()) for i in feedreader_alpha(plurl)]
+        [plids.append(i.getid()) for i in feedreader(plurl)]
         if debug:
             print "ADD: (search terms) ".join(search_terms)
         feed = "http://" + ASITE + "/feed/search/title/" + \
                urllib.urlencode({'':search_terms})[1:] + "/" + \
                formatstring(settings['format'])+".rss"
-        targets = feedreader_alpha(feed)    
+        targets = feedreader(feed)    
         for t in targets:
             if t.getid() not in plids:
                 print t.longlabel().encode(TERMCHARSET) 
                 if raw_input('Add to list (Y/n) ') in ['n', 'e']:
                     continue
-                editlist_alpha("add", t.getid())
+                editlist("add", t.getid())
         exit(0)
 
     # Seasonadd/seasondel mode
@@ -837,7 +837,7 @@ def main(argv):
         print "Please specify what to do with program id numbers (add/del)."
         exit(0)
 
-    targets = feedreader_alpha(feed)
+    targets = feedreader(feed)
 
     if len(targets) == 0:
         print "No targets found."
@@ -861,7 +861,7 @@ def main(argv):
         if debug:
             print "PLAY " + targets[-1].getid()
         purl = 'http://%s/recordings/play/%s%s' % \
-               (ASITE, targets[-1].getid(), play_url_suffix_alpha(settings['format']))
+               (ASITE, targets[-1].getid(), play_url_suffix(settings['format']))
         webbrowser.open(purl)
 
     # Show mode
@@ -869,7 +869,7 @@ def main(argv):
         if target['list']:
             pltargets = targets
         else:
-            pltargets = feedreader_alpha(plurl)
+            pltargets = feedreader(plurl)
         pl_ids = []
         # Get list of program IDs of the playlist
         [pl_ids.append(t.getid()) for t in pltargets]
