@@ -127,7 +127,9 @@ class Program:
     def __init__(self, pid, ptit, plen, pdt):
         self.idn = pid
         self.length = int(plen)
-        self.title = ptit
+        self.title = ptit.replace(" ","_")
+        # Avoid colon in file names for vfat compatibility
+        self.title = self.title.replace(":","")
         self.date = time.strftime("%Y-%m-%d", time.localtime(pdt))
         year = time.strftime("%Y", time.localtime(pdt))
         month = time.strftime("%m", time.localtime(pdt))
@@ -142,13 +144,13 @@ class Program:
                     SUB_SUFFIX
         self.turl = "http://" + settings['username'] + ":" + \
                     settings['password'] + "@" + ASITE + "/feed/thumbnails/" + pid + ".jpg"
-        self.vfile = self.dir + "/" + ptit.replace(" ","_") + "_" + \
+        self.vfile = self.dir + "/" + self.title + "_" + \
                      self.date + "_" + pid + "." + filesuffix(settings['format'])
         self.vfile = self.vfile.encode(FILECHARSET)
-        self.sfile = self.dir + "/" + ptit.replace(" ","_") + "_" + \
+        self.sfile = self.dir + "/" + self.title + "_" + \
                      self.date + "_" + pid + "" + SUB_SUFFIX
         self.sfile = self.sfile.encode(FILECHARSET)
-        self.tfile = self.dir + "/" + ptit.replace(" ","_") + "_" + \
+        self.tfile = self.dir + "/" + self.title + "_" + \
                      self.date + "_" + pid + "" + THUMB_SUFFIX
         self.tfile = self.tfile.encode(FILECHARSET)
 
