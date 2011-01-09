@@ -85,6 +85,7 @@ formats = ['iTunes', 'flv', 'h264', 'ts']
 verbose = False
 debug = False
 prompt = False
+subs_only = False
 show = False
 getthumb = True
 reverse = False
@@ -164,6 +165,16 @@ class Program:
             print "Warning: could not check file availability"
             return True
 
+    def sub_available(self):
+        """ 
+        Check subtitle availability using the HTTP response code
+        """
+        try:
+            return (urllib.urlopen(self.surl).getcode() == 200)
+        except AttributeError:
+            print "Warning: could not check file availability"
+            return True
+
     def download(self):
         """
         The download method executes the actual download process of
@@ -178,7 +189,7 @@ class Program:
         print self.label().encode(TERMCHARSET)
         if (os.path.exists(self.vfile)):
             sys.stdout.write("\r[" + BAR_WIDTH * '=' + '] (done)\n')
-        else:
+        elif subs_only == False:
             # Check that the file exists - encoding to various video formats
             # can take many hours.
             if not self.is_available():
@@ -198,18 +209,23 @@ class Program:
                 print "\nDownload interrupted"
                 exit(0)
         # Download subtitle file. Remove if empty.
-        if (not os.path.exists(self.sfile) and urllib.urlopen(self.surl).getcode() == 200):
-            try:
-                urllib.urlretrieve(self.surl, self.sfile + TMP_SUFFIX)
-                if (os.path.exists(self.sfile + TMP_SUFFIX)):
-                    shutil.move(self.sfile + TMP_SUFFIX, self.sfile)
-            except KeyboardInterrupt:
-                print "\nDownload interrupted"
-                exit(0)
-            if (os.stat(self.sfile).st_size == 0):
-                os.remove(self.sfile)
+        if (not os.path.exists(self.sfile)):
+            if not self.sub_available():
+                print "Warning: subtitle file not available."
+            else:
+                try:
+                    urllib.urlretrieve(self.surl, self.sfile + TMP_SUFFIX)
+                    if (os.path.exists(self.sfile + TMP_SUFFIX)):
+                        shutil.move(self.sfile + TMP_SUFFIX, self.sfile)
+                        if subs_only:
+                            print "Subtitle downloaded."
+                except KeyboardInterrupt:
+                    print "\nDownload interrupted"
+                    exit(0)
+                    if (os.stat(self.sfile).st_size == 0):
+                        os.remove(self.sfile)
         # Download thumbnail file
-        if (not os.path.exists(self.tfile) and getthumb and urllib.urlopen(self.turl).getcode() == 200):
+        if (not subs_only and not os.path.exists(self.tfile) and getthumb and urllib.urlopen(self.turl).getcode() == 200):
             try:
                 urllib.urlretrieve(self.turl, self.tfile + TMP_SUFFIX)
                 if (os.path.exists(self.tfile + TMP_SUFFIX)):
@@ -289,6 +305,7 @@ def usage():
     print "  --limit          download limit in kbytes/sec"
     print "  -n               maximum number of results to show"
     print "  -r --reverse     list in reverse order (new to old)"
+    print "  --subs-only      download only the subtitle file"
     print ""
 
 # List available video formats.
@@ -647,6 +664,7 @@ def main(argv):
     global DOWNLOAD_LIMIT
     global nmax
     global reverse
+    global subs_only
 
     timer = Timer()
     exp_settings = {}
@@ -655,7 +673,7 @@ def main(argv):
     try:
         opts, args = getopt.getopt(argv, "hvprf:u:p:d:n:", ["help", "verbose", \
                      "debug", "prompt", "reverse", "format=", "username=", \
-                     "password=", "downloaddir=", "limit="])
+                     "password=", "downloaddir=", "limit=", "subs-only"])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
@@ -677,6 +695,8 @@ def main(argv):
             debug = True
         if (opt == "--prompt"):
             prompt = True
+        if (opt == "--subs-only"):
+            subs_only = True
         if (opt == "--limit"):
             DOWNLOAD_LIMIT = 1024*int(arg)
         if opt in ("-n"):
