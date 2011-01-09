@@ -308,6 +308,10 @@ def usage():
     print "  --subs-only      download only the subtitle file"
     print ""
 
+# Show version
+def version():
+    print "tvkaista-cli %s" % __version__
+
 # List available video formats.
 def show_format_info():
     print "Available video formats:"
@@ -673,13 +677,17 @@ def main(argv):
     try:
         opts, args = getopt.getopt(argv, "hvprf:u:p:d:n:", ["help", "verbose", \
                      "debug", "prompt", "reverse", "format=", "username=", \
-                     "password=", "downloaddir=", "limit=", "subs-only"])
+                     "password=", "downloaddir=", "limit=", "subs-only", \
+                     "version"])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
     for opt, arg in opts:
         if opt in ("-h", "--help"):
             usage()
+            sys.exit()
+        if opt == "--version":
+            version()
             sys.exit()
         if opt in ("-f", "--format"):
             exp_settings['format'] = arg
