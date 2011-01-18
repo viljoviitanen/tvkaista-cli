@@ -20,7 +20,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 __author__ = "Matti Pöllä"
-__copyright__ = "Copyright 2009-2010, Matti Pöllä"
+__copyright__ = "Copyright 2009-2011, Matti Pöllä"
 __license__ = "GPL"
 __email__ = "mpo@iki.fi"
 __version__ = "0.66"
