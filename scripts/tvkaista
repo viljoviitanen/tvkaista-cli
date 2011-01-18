@@ -807,7 +807,7 @@ def main(argv):
             print "ADD: " + " ".join(target_ids)
         [editlist("add", t) for t in target_ids]
         exit(0)
-    if mode['del']:
+    if mode['del'] and len(target_ids) > 0:
         if debug:
             print "DEL: " + " ".join(target_ids)
         [editlist("del", t) for t in target_ids]
@@ -863,7 +863,7 @@ def main(argv):
 
     # Exception: program id numbers have been specified without
     # an action to perform.  
-    if len(target_ids) > 0 and mode['show']:
+    if len(target_ids) > 0 and (not mode['add'] or not mode['del']):
         print "Please specify what to do with program id numbers (add/del)."
         exit(0)
 
