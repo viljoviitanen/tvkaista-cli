@@ -10,7 +10,7 @@ reload(sys).setdefaultencoding("UTF-8")
 setup(name='tvkaista-cli',
       description='Command line interface to tvkaista.fi PVR service',
       # TODO: Import __version__ string from the script.
-      version='0.66',
+      version='0.67',
       packages = find_packages(),
       # Installing httplib2 through easy_install does not work
       #install_requires = ['httplib2>0.3'],

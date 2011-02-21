@@ -23,7 +23,7 @@ __author__ = "Matti Pöllä"
 __copyright__ = "Copyright 2009-2011, Matti Pöllä"
 __license__ = "GPL"
 __email__ = "mpo@iki.fi"
-__version__ = "0.66"
+__version__ = "0.67"
 
 import urllib
 import urllib2
