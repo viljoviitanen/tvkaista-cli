@@ -733,7 +733,7 @@ def main(argv):
             print "MODE: show"
 
     # Look for program ID numbers as arguments
-    target_ids = re.findall('([0-9]{6,7})', " ".join(args))
+    target_ids = re.findall('([0-9]{6,8})', " ".join(args))
 
     # No target given
     if len(args) == 0 and not mode['summary']:
