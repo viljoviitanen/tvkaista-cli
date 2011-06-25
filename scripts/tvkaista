@@ -36,7 +36,6 @@ import shutil
 import time
 import math
 import webbrowser
-import pytz
 import datetime
 # Tvkaista-cli currently depends on httplib2 but easy_install fails
 # to install httplib2 (resulting in HTTP error 404).
@@ -45,6 +44,14 @@ try:
 except:
     print "httplib2 is required to run this script. On Debian-based" 
     print "systems run 'sudo apt-get install python-httplib2'."
+    exit(1)
+
+# Friendly warning about missing pytz module.
+try:
+    import pytz
+except:
+    print "pytz module is required to run this script. You can do this" 
+    print "by running 'sudo easy_install -U pytz'."
     exit(1)
 
 from math import floor
