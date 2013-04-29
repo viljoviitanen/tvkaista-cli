@@ -88,7 +88,7 @@ http = httplib2.Http()
 
 settings = {}
 att = ['username', 'password', 'format', 'downloaddir']
-formats = ['iTunes', 'flv', 'h264', 'ts']
+formats = ['iTunes', 'flv', 'mpeg4', 'h264', 'ts']
 verbose = False
 debug = False
 prompt = False
@@ -307,7 +307,7 @@ def usage():
     print "  --prompt         ask separately for each program"
     print "  -u               username"
     print "  -p               password"
-    print "  -f               video format (iTunes/flv/h264/ts/help)"
+    print "  -f               video format (iTunes/flv/mpeg4/h264/ts/help)"
     print "  -d               download directory"
     print "  --limit          download limit in kbytes/sec"
     print "  -n               maximum number of results to show"
@@ -324,6 +324,7 @@ def show_format_info():
     print "Available video formats:"
     print " iTunes  300 kbps MPEG-4"
     print " flv       1 Mbps flash video"
+    print " mpeg4     1 Mbps MPEG-4"
     print " h264      2 Mbps MPEG-4"
     print " ts        8 Mbps MPEG-2 transport stream"
 
@@ -336,7 +337,7 @@ def prompt_settings():
     while (settings['format'] not in formats):
         if (settings['format']) == "help":
             show_format_info()
-        settings['format'] = raw_input("File format (iTunes/flv/h264/ts): ")
+        settings['format'] = raw_input("File format (iTunes/flv/mpeg4/h264/ts): ")
     settings['downloaddir'] = raw_input("Download directory: ")
     for k in settings.keys():
         print "   " + k + ": " + settings[k]
@@ -407,6 +408,7 @@ def filesuffix(format):
     return {
       'iTunes': 'mp4',
       'flv' :   'flv',
+      'mpeg4':  'mp4',
       'h264':   'mp4',
       'ts':     'ts'
     }[format]
@@ -419,6 +421,7 @@ def formatstring(format):
     return {
       'iTunes': 'mp4',
       'flv' :   'flv',
+      'mpeg4':  'mp4',
       'h264':   'h264',
       'ts':     'ts'
     }[format]
@@ -639,6 +642,7 @@ def play_url_suffix(format):
     return {
       'iTunes': '/3/300000',
       'flv' :   '/4/1000000',
+      'mpeg4':  '/3/1000000',
       'h264':   '/3/2000000',
       'ts':     '/0/8000000'
     }[format]
