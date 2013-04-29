@@ -1,6 +1,6 @@
 tvkaista-cli - command line interface to tvkaista.fi PVR service
 
-  http://code.google.com/p/tvkaista-cli/
+  https://github.com/mpolla/tvkaista-cli
 
 English summary: TVkaista.fi is a PVR (personal video recorder) service with a 
 www interface. This script allows registered tvkaista users to download the set 

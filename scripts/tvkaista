@@ -3,7 +3,7 @@
 #
 # tvkaista-cli - a command line interface to tvkaista.fi PVR service
 #
-# http://code.google.com/p/tvkaista-cli/
+# https://github.com/mpolla/tvkaista-cli
 #
 # Copyright (c) 2009-2011 Matti Pöllä
 #
@@ -353,7 +353,7 @@ def write_rcfile(settings):
     omask = os.umask(077)
     f = open(getconffile(), 'w')
     f.write("# Configuration file for tvkaista-cli script\n")
-    f.write("# http://code.google.com/p/tvkaista-cli/\n")
+    f.write("# https://github.com/mpolla/tvkaista-cli\n")
     for k in settings.keys():
         f.write(k+" = " + settings[k] + "\n")
     f.close()
