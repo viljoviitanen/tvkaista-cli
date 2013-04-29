@@ -51,7 +51,7 @@ try:
     import pytz
 except:
     print "pytz module is required to run this script. You can do this" 
-    print "by running 'sudo easy_install -U pytz'."
+    print "by running 'sudo apt-get install python-tz'."
     exit(1)
 
 from math import floor
